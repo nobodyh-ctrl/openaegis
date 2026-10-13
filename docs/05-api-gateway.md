@@ -2,6 +2,8 @@
 
 > **Estado:** ✅ completada
 > **Costo de la etapa:** fracciones de centavo (algunos cientos de requests de prueba)
+>
+> **Cambios posteriores (Etapa 6):** se agregaron las rutas de `/controls`, cada una con su statement en la resource-based policy; se indicó sumar `GET`, `PATCH` y `DELETE` a CORS; el handler pasó a un router por `routeKey` repartido en 5 módulos. `POST /hello` se va a eliminar al terminar el CRUD. Estado actual: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## 1. Objetivo
 
@@ -139,11 +141,11 @@ Un frontend que llama a la API expone su URL en el JavaScript (visible con F12).
 | Tipo | HTTP API |
 | Nombre | `cloud-sec-checklist-http-api` |
 | Integración | Lambda proxy → `cloud-sec-checklist-api` (payload 2.0) |
-| Rutas | `POST /hello` |
+| Rutas | En esta etapa: `POST /hello`. Desde la Etapa 6, también `GET /controls`, `GET /controls/{id}`, `POST /controls` y `PATCH /controls/{id}` (falta `DELETE /controls/{id}`) |
 | Stage | `$default`, auto-deploy |
 | Throttling | Rate 10 req/s · Burst 20 |
 | CORS — Allow-Origin | `https://<distribucion>.cloudfront.net` |
-| CORS — Allow-Methods | `POST` |
+| CORS — Allow-Methods | En esta etapa: `POST`. En la Etapa 6 se indicó agregar `GET`, `PATCH` y `DELETE` (pendiente de verificar con `aws apigatewayv2 get-api --api-id <api-id>`, campo `CorsConfiguration`) |
 | CORS — Allow-Headers | `content-type` |
 | Tags | `Project = cloud-security-checklist` |
 
@@ -186,11 +188,11 @@ arn:aws:execute-api:us-east-1:<cuenta>:<api-id> / * / * / hello
                                                  └── stage
 ```
 
-Sin la `Condition`, cualquier API Gateway de cualquier cuenta podría invocar la función. Cada ruta nueva agrega su propio statement: **least privilege a nivel de ruta**.
+Sin la `Condition`, cualquier API Gateway de cualquier cuenta podría invocar la función. Cada **path** nuevo agrega su propio statement: **least privilege a nivel de path**. El método queda con comodín (`*`): en la Etapa 6 se comprobó que `PATCH` y `DELETE` sobre `/controls/{id}` reutilizan el statement creado para `GET /controls/{id}`.
 
 ### 4.3 Handler
 
-[`backend/handler.py`](../backend/handler.py):
+Código **al cerrar esta etapa** (commit `f1b38d4`). Desde la Etapa 6, `lambda_handler` busca la función en un diccionario `ROUTES` según `event["routeKey"]`, loguea `routeKey` + los dos request IDs, y la validación del body vive en `responses.parse_json_body`: ver [ARCHITECTURE.md](ARCHITECTURE.md#3-backend-confirmado-repo).
 
 ```python
 import json
@@ -378,7 +380,7 @@ Según la [página oficial de precios de API Gateway](https://aws.amazon.com/api
 | Paso | Acción | Motivo |
 |---|---|---|
 | 1 | API Gateway → la API → **Delete** | — |
-| 2 | Lambda → *Configuration* → *Permissions* → borrar el statement de API Gateway | Queda huérfano, apuntando a una API inexistente |
+| 2 | Lambda → *Configuration* → *Permissions* → borrar **todos** los statements de API Gateway (desde la Etapa 6 hay uno por path) | Quedan huérfanos, apuntando a una API inexistente |
 | 3 | Verificar que la API no aparece y que la Lambda no tiene statements | *Destroy → Verify* |
 
 ## 10. Cosas que NO se deben hacer

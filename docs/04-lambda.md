@@ -2,6 +2,8 @@
 
 > **Estado:** ✅ completada
 > **Costo de la etapa:** USD 0 (invocaciones de prueba dentro del Free Tier permanente de Lambda)
+>
+> **Cambios posteriores (Etapa 6):** el handler pasó a ser `handler.lambda_handler` y el código se despliega como zip; el backend se separó en 5 módulos; se agregó la variable `TABLE_NAME` y la inline policy `controls-table-crud` al rol. Las secciones afectadas lo indican. Estado actual: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## 1. Objetivo
 
@@ -118,7 +120,7 @@ Lambda ──sts:AssumeRole──► STS
 | D24 | Execution role **creado por la consola** (solo logs) | Rol escrito a mano | Suficiente para esta etapa. Se reescribirá con CDK aplicando least privilege |
 | D25 | Retención de logs: **1 semana** | Sin vencimiento (por defecto) | Evita la acumulación de logs y su costo |
 
-> **Contexto para entrevistas:** el backend es una Lambda en Python 3.14 sobre arm64, con 128 MB y timeout corto. No tiene Function URL ni VPC: se expone solo a través de API Gateway. Su execution role tiene una trust policy que solo permite que Lambda lo asuma y, por ahora, solo permisos para escribir sus propios logs. Las credenciales son temporales, emitidas por STS: no hay access keys en el código.
+> **Contexto para entrevistas:** el backend es una Lambda en Python 3.14 sobre arm64, con 128 MB y timeout corto. No tiene Function URL ni VPC: se expone solo a través de API Gateway. Su execution role tiene una trust policy que solo permite que Lambda lo asuma, permisos para escribir sus propios logs y, desde la Etapa 6, las 5 acciones del CRUD sobre una sola tabla de DynamoDB. Las credenciales son temporales, emitidas por STS: no hay access keys en el código.
 
 ## 4. Configuración realizada
 
@@ -129,16 +131,17 @@ Lambda ──sts:AssumeRole──► STS
 | Nombre | `cloud-sec-checklist-api` |
 | Runtime | Python 3.14 |
 | Architecture | arm64 |
-| Handler | `lambda_function.lambda_handler` |
+| Handler | `handler.lambda_handler` (en esta etapa era `lambda_function.lambda_handler`; cambió en la Etapa 6 al desplegar con zip) |
 | Memory | 128 MB |
 | Timeout | 3 s |
+| Variables de entorno | `TABLE_NAME = cloud-sec-checklist-controls` (desde la Etapa 6) |
 | Function URL | ❌ Desactivada |
 | VPC | ❌ Ninguna |
 | Tags | `Project = cloud-security-checklist` |
 
 ### 4.2 Código
 
-Archivo [`backend/handler.py`](../backend/handler.py):
+Código **al cerrar esta etapa** (commit `6c35796`), escrito en el editor de la consola como `lambda_function.py`. Hoy el backend está separado en 5 módulos de [`backend/`](../backend/) y se despliega como zip: ver [ARCHITECTURE.md](ARCHITECTURE.md#3-backend-confirmado-repo).
 
 ```python
 import json
@@ -188,7 +191,7 @@ def lambda_handler(event, context):
 }
 ```
 
-**Permissions policy:**
+**Permissions policy** (de logs, creada por la consola):
 
 ```json
 {
@@ -218,7 +221,7 @@ def lambda_handler(event, context):
 Observaciones:
 
 - **Puede escribir logs, pero no leerlos** (no tiene `logs:GetLogEvents`).
-- **No tiene permisos de DynamoDB**: cualquier intento recibiría `AccessDenied` (deny by default).
+- Al cerrar esta etapa **no tenía permisos de DynamoDB**: cualquier intento recibía `AccessDenied` (deny by default). En la Etapa 6 se provocó ese error a propósito y se agregó la inline policy **`controls-table-crud`** (`Scan`, `GetItem`, `PutItem`, `UpdateItem`, `DeleteItem` solo sobre la tabla `cloud-sec-checklist-controls`). Ver [ARCHITECTURE.md](ARCHITECTURE.md#5-iam-quién-le-pide-permiso-a-quién).
 
 ### 4.4 Logs
 
@@ -355,4 +358,4 @@ Este cambio se aplicará antes de integrar Cognito.
 - ❌ Activar provisioned concurrency en un proyecto de bajo tráfico.
 - ❌ Guardar estado en variables globales esperando que persista.
 - ❌ Loguear el event completo cuando contenga tokens o datos personales.
-- ❌ Olvidar hacer **Deploy** después de editar el código en la consola.
+- ❌ Editar el código en el editor de la consola. La fuente de verdad es el repo: se edita en VS Code y se sube el zip (en esta etapa, cuando se editaba en la consola, el error típico era olvidar el **Deploy**).
