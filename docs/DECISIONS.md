@@ -1,8 +1,16 @@
 # Decisiones técnicas
 
 > Índice de **todas** las decisiones del proyecto. D1–D31 están desarrolladas en el doc de cada etapa (acá solo el resumen y el enlace). D32–D54 (Etapa 6) están acá con sus alternativas completas y resumidas en [06-dynamodb.md](06-dynamodb.md).
-> **Próximo número libre: D55.** Cada decisión nueva se agrega acá y en el doc de su etapa.
-> Las decisiones importantes van a tener además un **ADR** en `docs/architecture-decisions/` (acordado, todavía no creado; ver preguntas abiertas).
+> **Próximo número libre: D56.** Cada decisión nueva se agrega acá y en el doc de su etapa.
+> Las decisiones grandes tienen además un **ADR** completo (D55):
+>
+> | ADR | Tema | Decisiones |
+> |---|---|---|
+> | [ADR-001](architecture-decisions/001-serverless.md) | Arquitectura serverless (Lambda + API Gateway) | D6–D8, D18–D23, D46 |
+> | [ADR-002](architecture-decisions/002-s3-cloudfront.md) | Frontend en S3 privado + CloudFront con OAC | D9–D17 |
+> | [ADR-003](architecture-decisions/003-http-api.md) | API Gateway HTTP API | D22, D26–D31, D41, D42 |
+> | [ADR-004](architecture-decisions/004-dynamodb.md) | DynamoDB on-demand | D32–D45, D50, D53, D54 |
+> | [ADR-005](architecture-decisions/005-deployment-model.md) | Modelo de despliegue self-hosted single-account | D48, D2 |
 
 ## D1–D31 (documentadas por etapa)
 
@@ -69,6 +77,7 @@ Todas tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSACIÓN]
 | D52 | Traducción de errores | Cada capa habla su idioma: el repositorio devuelve `None`, `validation.py` devuelve mensajes y `controls.py` decide el status code | Desacople de AWS y de HTTP | Lanzar respuestas HTTP desde la validación (era así antes del refactor) |
 | D53 | Borrado de controles | **Borrado real** (`DeleteItem`) permitido; cuando existan findings (Etapa 11), **409 si el control tiene findings** (D40). Decidida el 2026-10-13 | Un control es una **definición** (regla), no un registro histórico: el historial de evaluaciones vive en los findings, y D40 lo protege justo cuando existe. Resuelve duplicados y errores de carga (los dos `S3-002`). Lo pide el requisito original ("eliminar"). Quién borró qué: logs de CloudWatch hoy, usuario con Cognito (Etapa 9), audit trail completo en la V2 | **Soft delete** (`archived_at`: todas las consultas filtran, el `code` archivado ocupa lugar, el Scan los sigue leyendo; evolución posible si aparece la necesidad de recuperar controles). **No permitir borrar** (contradice el requisito; los errores quedan para siempre o se borran a mano en la consola) |
 | D54 | Semántica del `DELETE` | `DeleteItem` con `attribute_exists(id)` → **404** si no existe; **200 + item borrado** (`ReturnValues="ALL_OLD"`); se loguea el `code` borrado. Decidida el 2026-10-13 | `DeleteItem` responde éxito aunque el item no exista: sin condición, un id mal escrito parece un borrado exitoso. Misma técnica que el `PATCH` (D50). `ALL_OLD` evita una lectura extra y sirve `build_response` sin cambios | Éxito silencioso (idempotencia estricta); 204 sin body (requiere un caso especial en `responses.py`) |
+| D55 | Documentación de decisiones | **`DECISIONS.md` como índice** de todas las decisiones (una línea cada una) + **ADR completo solo para las decisiones grandes** (`docs/architecture-decisions/NNN-tema.md`). Decidida el 2026-10-13 | No duplicar 50+ decisiones; los ADRs quedan para lo que vale la pena explicar a fondo (contexto, alternativas, ventajas, desventajas, seguridad, costo, evolución) | Un ADR por decisión (texto repetido para decisiones chicas); solo `DECISIONS.md` (no cumple el formato pedido en el documento de evolución) |
 
 ## Propuestas (no decididas)
 
@@ -88,5 +97,4 @@ Todas tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSACIÓN]
 3. **Etapa 11:** ¿`SecurityAudit` o policy propia?
 4. **Enums:** ¿aceptar `"high"` normalizando con `.upper()`, o mantener el 400?
 5. **Opcionales vacíos:** hoy `"description": ""` se guarda como string vacío. ¿Guardarlo así, omitir el atributo o, en `PATCH`, usarlo para **borrar** el campo (`REMOVE`)?
-6. **ADRs:** ¿`DECISIONS.md` como índice de todas las decisiones y ADRs solo para las importantes (propuesta), u otra organización?
-7. **`CLAUDE.md`:** Claude Code lee automáticamente `CLAUDE.md`, no `AGENTS.md`. ¿Crear un `CLAUDE.md` mínimo que remita a `AGENTS.md`?
+6. **`CLAUDE.md`:** Claude Code lee automáticamente `CLAUDE.md`, no `AGENTS.md`. ¿Crear un `CLAUDE.md` mínimo que remita a `AGENTS.md`?

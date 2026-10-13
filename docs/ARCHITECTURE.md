@@ -36,7 +36,7 @@ Todo en **`us-east-1`**, en una sola cuenta. Hoy el frontend **no** consume la A
 
 **Diagramas del repo:**
 
-- [architecture/architecture.drawio.png](../architecture/architecture.drawio.png) — ⚠️ **desactualizado**: todavía muestra API Gateway y DynamoDB como "planificados". Hay que actualizarlo (editable con la extensión draw.io de VS Code; fondo blanco para que se lea en el modo oscuro de GitHub).
+- [architecture/architecture.drawio.png](../architecture/architecture.drawio.png) — vista general, actualizada el 2026-10-13 (Etapas 0–6 implementadas; Cognito y checks como planificados). PNG editable con la extensión draw.io de VS Code (XML embebido; fondo blanco para el modo oscuro de GitHub).
 - [architecture/permissions-flow.drawio.png](../architecture/permissions-flow.drawio.png) — "quién le pide permiso a quién", flechas ① a ⑤.
 
 ## 2. Recursos de AWS [CONVERSACIÓN]

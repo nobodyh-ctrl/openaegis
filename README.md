@@ -40,9 +40,13 @@ Cliente ──HTTPS──► API Gateway (HTTP API) ──► Lambda (Python) �
 
 Todo corre en una sola cuenta y en una sola región (`us-east-1`). Detalle completo (recursos, permisos, flujo de una request, modelo de datos): **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 
+![Arquitectura](architecture/architecture.drawio.png)
+
+**Quién le pide permiso a quién** (policies de cada flecha):
+
 ![Flujo de permisos](architecture/permissions-flow.drawio.png)
 
-*El diagrama general [architecture/architecture.drawio.png](architecture/architecture.drawio.png) todavía muestra API Gateway y DynamoDB como "planificados"; está pendiente de actualizar.*
+*Los dos diagramas son PNG editables con la extensión draw.io de VS Code (llevan el XML embebido).*
 
 ### Backend
 
@@ -58,7 +62,7 @@ Python puro, sin frameworks ni dependencias externas, separado por responsabilid
 
 ## Por qué esta arquitectura
 
-Cada decisión está registrada con su motivo y sus alternativas en **[docs/DECISIONS.md](docs/DECISIONS.md)**.
+Cada decisión está registrada con su motivo y sus alternativas en **[docs/DECISIONS.md](docs/DECISIONS.md)**; las cinco más importantes tienen un ADR completo en **[docs/architecture-decisions/](docs/architecture-decisions/)**.
 
 ### Por qué serverless
 
@@ -136,7 +140,8 @@ Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
 |---|---|
 | [docs/00](docs/00-account-setup.md) … [docs/06](docs/06-dynamodb.md) | Una etapa por documento: conceptos, decisiones, configuración, verificación, costos, cómo revertir |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Arquitectura implementada |
-| [docs/DECISIONS.md](docs/DECISIONS.md) | Todas las decisiones técnicas |
+| [docs/DECISIONS.md](docs/DECISIONS.md) | Todas las decisiones técnicas (índice) |
+| [docs/architecture-decisions/](docs/architecture-decisions/) | ADRs de las decisiones grandes: serverless, S3 + CloudFront, HTTP API, DynamoDB, modelo de despliegue |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Etapas y estado |
 | [docs/LEARNING_LOG.md](docs/LEARNING_LOG.md) | Conceptos aprendidos y errores encontrados |
 | [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md) | Origen y objetivos del proyecto |

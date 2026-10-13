@@ -37,7 +37,7 @@ Orden original 0–16. **Cambio acordado:** Lambda pasó a ser la Etapa 4 y API 
 
 ### Tareas para cerrar la V1, en orden
 
-**Etapa 6 ✅ (quedan los pendientes 7 y 8, que no bloquean la Etapa 7)**
+**Etapa 6 ✅**
 
 1. ✅ **Pruebas del `PATCH /controls/{id}` completas** [CONVERSACIÓN, 2026-10-13]: `{"status":"FAIL"}` → 200 (`updated_at` cambia, `created_at` no) · `{"title":""}` y `{"title":"   "}` → 400 · id inexistente → 404 **sin crear item** (`count` siguió en 4) · `abc` → 400 · `{}`, `{"admin":true}`, `{"created_at":...}` → 400 · `code` de otro control → 409 · su propio `code` → 200 · varios campos → 200. La predicción del handler quedó respondida (ver LEARNING_LOG).
 2. **Commit** de la documentación pendiente (el código del `PATCH` ya está en `e5dbabf`).
@@ -45,8 +45,8 @@ Orden original 0–16. **Cambio acordado:** Lambda pasó a ser la Etapa 4 y API 
 4. ✅ **Eliminar `POST /hello`** (2026-10-13): código (`ROUTES` y `controls.hello`), ruta en API Gateway y statement de la resource-based policy. Verificado: `POST /hello` → 404 de API Gateway, `get-routes` muestra solo las 5 rutas del CRUD, `get-policy` muestra 2 statements. CORS verificado en la misma sesión.
 5. ✅ **Checkpoint de la Etapa 6** (2026-10-13): 5/5 respuestas correctas.
 6. ✅ **[`docs/06-dynamodb.md`](06-dynamodb.md)** escrito (decisiones D32–D54).
-7. **Primeros ADRs** (serverless, S3 + CloudFront, HTTP API, DynamoDB, modelo de despliegue), después de acordar con el usuario cómo conviven con `DECISIONS.md`.
-8. **Actualizar** [architecture/architecture.drawio.png](../architecture/architecture.drawio.png) (API Gateway y DynamoDB ya no son "planificados").
+7. ✅ **Primeros ADRs** (2026-10-13): [001 serverless](architecture-decisions/001-serverless.md), [002 S3 + CloudFront](architecture-decisions/002-s3-cloudfront.md), [003 HTTP API](architecture-decisions/003-http-api.md), [004 DynamoDB](architecture-decisions/004-dynamodb.md), [005 modelo de despliegue](architecture-decisions/005-deployment-model.md). `DECISIONS.md` es el índice (D55).
+8. ✅ **Diagramas actualizados** (2026-10-13): [architecture.drawio.png](../architecture/architecture.drawio.png) (API Gateway y DynamoDB implementados, rol IAM con línea continua, etiquetas sin superposiciones) y [permissions-flow.drawio.png](../architecture/permissions-flow.drawio.png) (nombre OpenAegis, CRUD completo, statement por path).
 
 **Etapas 7 a 16**
 

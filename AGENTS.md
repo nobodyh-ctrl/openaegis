@@ -43,7 +43,7 @@ openaegis/
 ├── LICENSE                   ← MIT
 ├── .gitignore                ← secretos, __pycache__, cdk.out/, *.zip
 ├── architecture/
-│   ├── architecture.drawio.png       ← diagrama editable (extensión draw.io de VS Code). ⚠️ desactualizado: muestra API Gateway y DynamoDB como "planificados"
+│   ├── architecture.drawio.png       ← diagrama editable (extensión draw.io de VS Code). actualizado al cierre de la Etapa 6
 │   └── permissions-flow.drawio.png   ← "quién le pide permiso a quién" (flechas ① a ⑤)
 ├── backend/                  ← código de la Lambda (Python, sin dependencias externas)
 │   ├── handler.py            ← punto de entrada: ROUTES + lambda_handler
@@ -53,6 +53,7 @@ openaegis/
 │   └── responses.py          ← formato de entrada/salida de API Gateway (payload 2.0)
 ├── docs/
 │   ├── 00..06-*.md           ← un doc por etapa (decisiones D1–D54)
+│   ├── architecture-decisions/  ← ADR-001 a ADR-005 (decisiones grandes)
 │   ├── PROJECT_CONTEXT.md · ARCHITECTURE.md · ROADMAP.md · DECISIONS.md · LEARNING_LOG.md
 └── frontend/
     └── index.html            ← solo un <h1> de prueba
@@ -166,7 +167,7 @@ El usuario pidió un **tutor técnico exigente, no un generador de código**. Re
 ## 10. Cómo documentar
 
 - **Un doc por etapa** en `docs/NN-tema.md`, con la estructura de los existentes: objetivo, conceptos, decisiones (`D#`), configuración, verificación, debugging, costos, relación con Cloud Security, cómo revertir, cosas que NO hacer. Con marcadores en lugar de identificadores reales.
-- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D55**), y al doc de su etapa.
-- **ADRs** (`docs/architecture-decisions/NNN-*.md`, formato *Context, Decision, Why, Alternatives considered, Advantages, Disadvantages, Security considerations, Cost considerations, Consequences, Future evolution*): acordados, **todavía no creados**. Antes de crear la carpeta, confirmar con el usuario cómo convive con `DECISIONS.md` (ver preguntas abiertas).
+- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D56**), y al doc de su etapa.
+- **ADRs** (`docs/architecture-decisions/NNN-tema.md`, D55): solo para decisiones **grandes**; `DECISIONS.md` es el índice de todas. Formato: Contexto, Decisión, Por qué, Alternativas consideradas, Ventajas, Desventajas, Consideraciones de seguridad, Consideraciones de costo, Consecuencias, Evolución futura (más estado, fecha y decisiones relacionadas). Existen ADR-001 a ADR-005; el siguiente es **006**. Al crear uno, agregarlo a la tabla de `DECISIONS.md`.
 - **README:** contar la evolución, con ventajas **y desventajas**; **solo lo implementado**.
 - Actualizar ROADMAP y ARCHITECTURE cuando algo cambie de estado.
