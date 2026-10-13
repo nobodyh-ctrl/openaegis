@@ -81,14 +81,14 @@ def update_control(event):
     return build_response(200, {"item": item})
 
 
-def hello(event):
-    """Ruta de prueba de la Etapa 5. Se elimina al terminar el CRUD."""
-    body, err_response = parse_json_body(event)
-    if err_response:
-        return err_response
+def delete_control(event):
+    control_id, err = validate_control_id(event.get("pathParameters", {}).get("id"))
+    if err:
+        return error_response(400, err)
 
-    name = body.get("name")
-    if not name or str(name).strip() == "":
-        return error_response(400, "El nombre no puede estar vacío o ausente.")
+    item = repository.delete_control(control_id)
+    if item is None:
+        return error_response(404, "Control no encontrado.")
 
-    return build_response(200, {"message": f"Hola, {name}!"})
+    print(f"[DELETE] code={item.get('code')} id={item['id']}")
+    return build_response(200, {"item": item})

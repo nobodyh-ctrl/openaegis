@@ -51,6 +51,20 @@ def create_control(item):
     # put_item sobrescribe sin avisar si la clave existe; la condición lo impide
     table.put_item(Item=item, ConditionExpression="attribute_not_exists(id)")
 
+
+def delete_control(control_id):
+    """Elimina el control. Retorna el item eliminado o None si no existía."""
+    try:
+        response = table.delete_item(
+            Key={"id": control_id},
+            ConditionExpression="attribute_exists(id)",
+            ReturnValues="ALL_OLD",
+        )
+        return response["Attributes"]
+    except table.meta.client.exceptions.ConditionalCheckFailedException:
+        return None
+
+
 def update_control(control_id, fields):
     """Actualiza los campos indicados. Retorna el item actualizado o None si no existe."""
     names = {f"#{k}": k for k in fields}

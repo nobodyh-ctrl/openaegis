@@ -5,8 +5,8 @@ ROUTES = {
     "GET /controls": controls.list_controls,
     "GET /controls/{id}": controls.get_control,
     "POST /controls": controls.create_control,
-    "POST /hello": controls.hello,
     "PATCH /controls/{id}": controls.update_control,
+    "DELETE /controls/{id}": controls.delete_control,
 }
 
 
