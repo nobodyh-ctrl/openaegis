@@ -50,21 +50,20 @@ Todos creados **a mano en la consola**, con tag `Project = cloud-security-checkl
 | Lambda `cloud-sec-checklist-api` | Python 3.14, arm64, 128 MB, timeout 3 s, sin Function URL, sin VPC, handler `handler.lambda_handler`, env `TABLE_NAME=cloud-sec-checklist-controls` | [04-lambda.md](04-lambda.md) |
 | Execution role `cloud-sec-checklist-api-role-<sufijo>` | Trust: `lambda.amazonaws.com`. Policy de logs creada por la consola + inline **`controls-table-crud`** (ver §5) | [04-lambda.md](04-lambda.md) |
 | Log group `/aws/lambda/cloud-sec-checklist-api` | Retención 1 semana | [04-lambda.md](04-lambda.md) |
-| HTTP API `cloud-sec-checklist-http-api` | Stage `$default` con auto-deploy · throttling rate 10 / burst 20 · CORS Allow-Origin = solo `https://<distribucion>.cloudfront.net` · Allow-Headers `content-type` · Allow-Methods: `POST` en la Etapa 5; en la Etapa 6 se indicó agregar `GET`, `PATCH`, `DELETE` [INCIERTO: no hay salida que lo confirme] | [05-api-gateway.md](05-api-gateway.md) |
-| DynamoDB `cloud-sec-checklist-controls` | PK `id` (String), sin sort key, on-demand, Standard, cifrado *Owned by Amazon DynamoDB*, **deletion protection desactivado** (a propósito, para la migración a CDK), sin PITR, sin GSI | Pendiente: `06-dynamodb.md` |
+| HTTP API `cloud-sec-checklist-http-api` | Stage `$default` con auto-deploy · throttling rate 10 / burst 20 · CORS Allow-Origin = solo `https://<distribucion>.cloudfront.net` · Allow-Headers `content-type` · Allow-Methods `GET`, `POST`, `PATCH`, `DELETE` · AllowCredentials `false` · MaxAge `0` (verificado con `get-api` el 2026-10-13). Con Cognito (Etapa 9) habrá que sumar `authorization` a Allow-Headers | [05-api-gateway.md](05-api-gateway.md) |
+| DynamoDB `cloud-sec-checklist-controls` | PK `id` (String), sin sort key, on-demand, Standard, cifrado *Owned by Amazon DynamoDB*, **deletion protection desactivado** (a propósito, para la migración a CDK), sin PITR, sin GSI | [06-dynamodb.md](06-dynamodb.md) |
 
 ### Rutas configuradas en API Gateway
 
 | Ruta | ¿Existe en API Gateway? |
 |---|---|
-| `POST /hello` | Sí (temporal, a eliminar) |
 | `GET /controls` | Sí (respondió 200) |
 | `GET /controls/{id}` | Sí (respondió 200/400/404) |
 | `POST /controls` | Sí (respondió 201/400/409) |
 | `PATCH /controls/{id}` | Sí: respondió **200** a un `curl` el 2026-10-10, así que la ruta existe y está integrada |
 | `DELETE /controls/{id}` | Sí: respondió 200/404/400 el 2026-10-13 |
 
-**Resource-based policy de la Lambda** (verificada con `aws lambda get-policy` el 2026-10-13): **3 statements, uno por _path_, no uno por ruta**: `/hello`, `/controls` y `/controls/{id}`. El `SourceArn` tiene la forma `.../<api-id>/*/*/<path>`: el segundo `*` es el **método**, así que el statement de `/controls` cubre `GET` y `POST`, y el de `/controls/{id}` cubre `GET`, `PATCH` y `DELETE`. Por eso `PATCH` y `DELETE` funcionaron sin agregar statements. Restringir también por método (`.../*/GET/controls`) sería más estricto [PROPUESTA para la Etapa 7 / CDK].
+**Resource-based policy de la Lambda** (verificada con `aws lambda get-policy` el 2026-10-13): **uno por _path_, no uno por ruta**. Hoy quedan **2**: `/controls` y `/controls/{id}` (el de `/hello` se borró el 2026-10-13, verificado). El `SourceArn` tiene la forma `.../<api-id>/*/*/<path>`: el segundo `*` es el **método**, así que el statement de `/controls` cubre `GET` y `POST`, y el de `/controls/{id}` cubre `GET`, `PATCH` y `DELETE`. Por eso `PATCH` y `DELETE` funcionaron sin agregar statements. Restringir también por método (`.../*/GET/controls`) sería más estricto [PROPUESTA para la Etapa 7 / CDK].
 
 ## 3. Backend [CONFIRMADO-REPO]
 
@@ -81,7 +80,7 @@ handler.py ──► controls.py ──► validation.py      (sin AWS ni HTTP)
 | Archivo | Responsabilidad | Sabe de… | No sabe de… |
 |---|---|---|---|
 | [handler.py](../backend/handler.py) | `ROUTES` (`routeKey` → función) y `lambda_handler`. Loguea `routeKey` + request ID de API Gateway + request ID de Lambda. Ruta desconocida → 404 | El event de API Gateway | DynamoDB, validaciones |
-| [controls.py](../backend/controls.py) | `list_controls`, `get_control`, `create_control`, `update_control`, `hello` (temporal). Decide los status codes | Reglas de negocio (400/404/409/201) | boto3 |
+| [controls.py](../backend/controls.py) | `list_controls`, `get_control`, `create_control`, `update_control`, `delete_control`. Decide los status codes | Reglas de negocio (400/404/409/201) | boto3 |
 | [validation.py](../backend/validation.py) | `SEVERITY_VALUES`, `STATUS_VALUES`, `FIELD_RULES`, `validate_fields(body, partial=False)`, `validate_control_id`. Devuelve **mensajes**, no respuestas HTTP | Qué es un control válido | AWS, HTTP |
 | [repository.py](../backend/repository.py) | `table` (creada en el cold start), `_scan_all` paginado, `list_controls`, `get_control`, `find_control_by_code`, `create_control`, `update_control`. Traduce `ConditionalCheckFailedException` a `None` | DynamoDB | HTTP |
 | [responses.py](../backend/responses.py) | `build_response` (con `_json_default` para `Decimal`), `error_response`, `parse_json_body` | Payload 2.0 | DynamoDB |
@@ -111,7 +110,7 @@ API Gateway (payload 2.0, body como string)
 | `GET /controls/{id}` | `GetItem` | 200 `{"item": {...}}` · 400 id inválido · 404 |
 | `POST /controls` | `Scan` por `code` + `PutItem` con `attribute_not_exists(id)` | 201 `{"item": {...}}` · 400 · 409 `code` duplicado |
 | `PATCH /controls/{id}` | `Scan` por `code` (si viene) + `UpdateItem` con `attribute_exists(id)` y `ReturnValues=ALL_NEW` | 200 · 400 · 404 · 409 |
-| `POST /hello` | — | Temporal (Etapa 5). A eliminar |
+| `DELETE /controls/{id}` | `DeleteItem` con `attribute_exists(id)` y `ReturnValues=ALL_OLD` | 200 `{"item": {...}}` (el borrado) · 400 · 404 |
 
 Errores: siempre `{"error": "<mensaje>"}`. Errores no previstos **no** se atrapan: la Lambda falla, API Gateway devuelve 500 y el traceback queda en CloudWatch (y en la métrica *Errors*).
 

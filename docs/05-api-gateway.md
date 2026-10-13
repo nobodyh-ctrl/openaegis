@@ -3,7 +3,7 @@
 > **Estado:** ✅ completada
 > **Costo de la etapa:** fracciones de centavo (algunos cientos de requests de prueba)
 >
-> **Cambios posteriores (Etapa 6):** se agregaron las rutas de `/controls`, cada una con su statement en la resource-based policy; se indicó sumar `GET`, `PATCH` y `DELETE` a CORS; el handler pasó a un router por `routeKey` repartido en 5 módulos. `POST /hello` se va a eliminar al terminar el CRUD. Estado actual: [ARCHITECTURE.md](ARCHITECTURE.md).
+> **Cambios posteriores (Etapa 6):** se agregaron las 5 rutas de `/controls` (un statement por **path** en la resource-based policy); CORS pasó a `GET`, `POST`, `PATCH`, `DELETE`; el handler pasó a un router por `routeKey` repartido en 5 módulos. `POST /hello` se **eliminó** el 2026-10-13 (código, ruta y statement); los ejemplos de este doc la usan porque era la ruta de esta etapa. Estado actual: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## 1. Objetivo
 
@@ -141,11 +141,11 @@ Un frontend que llama a la API expone su URL en el JavaScript (visible con F12).
 | Tipo | HTTP API |
 | Nombre | `cloud-sec-checklist-http-api` |
 | Integración | Lambda proxy → `cloud-sec-checklist-api` (payload 2.0) |
-| Rutas | En esta etapa: `POST /hello`. Desde la Etapa 6, también `GET /controls`, `GET /controls/{id}`, `POST /controls` y `PATCH /controls/{id}` (falta `DELETE /controls/{id}`) |
+| Rutas | En esta etapa: `POST /hello` (eliminada en la Etapa 6). Hoy: `GET /controls`, `GET /controls/{id}`, `POST /controls`, `PATCH /controls/{id}`, `DELETE /controls/{id}` |
 | Stage | `$default`, auto-deploy |
 | Throttling | Rate 10 req/s · Burst 20 |
 | CORS — Allow-Origin | `https://<distribucion>.cloudfront.net` |
-| CORS — Allow-Methods | En esta etapa: `POST`. En la Etapa 6 se indicó agregar `GET`, `PATCH` y `DELETE` (pendiente de verificar con `aws apigatewayv2 get-api --api-id <api-id>`, campo `CorsConfiguration`) |
+| CORS — Allow-Methods | En esta etapa: `POST`. Desde la Etapa 6: `GET`, `POST`, `PATCH`, `DELETE` (verificado con `aws apigatewayv2 get-api --api-id <api-id> --query CorsConfiguration`) |
 | CORS — Allow-Headers | `content-type` |
 | Tags | `Project = cloud-security-checklist` |
 

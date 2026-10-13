@@ -1,6 +1,6 @@
 # Decisiones técnicas
 
-> Índice de **todas** las decisiones del proyecto. D1–D31 están desarrolladas en el doc de cada etapa (acá solo el resumen y el enlace). Desde D32, hasta que exista `06-dynamodb.md`, este archivo es la fuente principal.
+> Índice de **todas** las decisiones del proyecto. D1–D31 están desarrolladas en el doc de cada etapa (acá solo el resumen y el enlace). D32–D54 (Etapa 6) están acá con sus alternativas completas y resumidas en [06-dynamodb.md](06-dynamodb.md).
 > **Próximo número libre: D55.** Cada decisión nueva se agrega acá y en el doc de su etapa.
 > Las decisiones importantes van a tener además un **ADR** en `docs/architecture-decisions/` (acordado, todavía no creado; ver preguntas abiertas).
 

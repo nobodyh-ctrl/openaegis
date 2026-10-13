@@ -23,8 +23,8 @@ Orden original 0–16. **Cambio acordado:** Lambda pasó a ser la Etapa 4 y API 
 | 3 | CloudFront | ✅ | [03-cloudfront.md](03-cloudfront.md) |
 | 4 | Lambda + Python | ✅ | [04-lambda.md](04-lambda.md) |
 | 5 | API Gateway (HTTP API) | ✅ | [05-api-gateway.md](05-api-gateway.md) |
-| **6** | **DynamoDB + CRUD de controles** | ⏳ **EN CURSO** | Falta `06-dynamodb.md` |
-| 7 | IAM (least privilege real) | Parcial: se aplica en cada etapa | — |
+| 6 | DynamoDB + CRUD de controles | ✅ (2026-10-13) | [06-dynamodb.md](06-dynamodb.md) |
+| **7** | **IAM (least privilege real)** | ⏳ **SIGUIENTE** (parcial: se aplica en cada etapa) | — |
 | 8 | Integración: frontend real contra la API | [PENDIENTE] | — |
 | 9 | Cognito (autenticación; autorizador JWT del HTTP API) | [PENDIENTE] | — |
 | 10 | CloudWatch: métricas, alarmas, debugging, manejo de errores centralizado | [PENDIENTE] | — |
@@ -37,14 +37,14 @@ Orden original 0–16. **Cambio acordado:** Lambda pasó a ser la Etapa 4 y API 
 
 ### Tareas para cerrar la V1, en orden
 
-**Etapa 6 (en curso)**
+**Etapa 6 ✅ (quedan los pendientes 7 y 8, que no bloquean la Etapa 7)**
 
 1. ✅ **Pruebas del `PATCH /controls/{id}` completas** [CONVERSACIÓN, 2026-10-13]: `{"status":"FAIL"}` → 200 (`updated_at` cambia, `created_at` no) · `{"title":""}` y `{"title":"   "}` → 400 · id inexistente → 404 **sin crear item** (`count` siguió en 4) · `abc` → 400 · `{}`, `{"admin":true}`, `{"created_at":...}` → 400 · `code` de otro control → 409 · su propio `code` → 200 · varios campos → 200. La predicción del handler quedó respondida (ver LEARNING_LOG).
 2. **Commit** de la documentación pendiente (el código del `PATCH` ya está en `e5dbabf`).
 3. **Implementar `DELETE /controls/{id}`** (`DeleteItem`; como todavía no existen findings, borra directo; con findings será 409, D40). Ruta en API Gateway + verificar el statement en la resource-based policy. **Primera prueba: borrar uno de los dos `S3-002` duplicados** (dejados a propósito). Decidido: 404 si no existe y 200 + item borrado (D53, D54). ✅ Desplegado y verificado el 2026-10-13: borrar el duplicado → 200 con el item; GET y DELETE del mismo id → 404; `count` 4 → 3; `abc` → 400; id inexistente → 404; el log registra el `code` borrado.
-4. **Eliminar `POST /hello`:** de `ROUTES` y `controls.py`, la ruta en API Gateway y **su statement huérfano** en la resource-based policy de la Lambda.
-5. **Checkpoint de la Etapa 6** (CONCEPTO / ARQUITECTURA / SEGURIDAD / COSTOS / PRÁCTICA / VERIFICACIÓN + 3–5 preguntas).
-6. **Escribir `docs/06-dynamodb.md`** con la estructura de los docs anteriores (decisiones D32 en adelante, ver [DECISIONS.md](DECISIONS.md)).
+4. ✅ **Eliminar `POST /hello`** (2026-10-13): código (`ROUTES` y `controls.hello`), ruta en API Gateway y statement de la resource-based policy. Verificado: `POST /hello` → 404 de API Gateway, `get-routes` muestra solo las 5 rutas del CRUD, `get-policy` muestra 2 statements. CORS verificado en la misma sesión.
+5. ✅ **Checkpoint de la Etapa 6** (2026-10-13): 5/5 respuestas correctas.
+6. ✅ **[`docs/06-dynamodb.md`](06-dynamodb.md)** escrito (decisiones D32–D54).
 7. **Primeros ADRs** (serverless, S3 + CloudFront, HTTP API, DynamoDB, modelo de despliegue), después de acordar con el usuario cómo conviven con `DECISIONS.md`.
 8. **Actualizar** [architecture/architecture.drawio.png](../architecture/architecture.drawio.png) (API Gateway y DynamoDB ya no son "planificados").
 

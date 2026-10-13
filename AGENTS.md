@@ -52,7 +52,7 @@ openaegis/
 │   ├── repository.py         ← ÚNICO módulo que usa boto3 / DynamoDB
 │   └── responses.py          ← formato de entrada/salida de API Gateway (payload 2.0)
 ├── docs/
-│   ├── 00..05-*.md           ← un doc por etapa (decisiones D1–D31)
+│   ├── 00..06-*.md           ← un doc por etapa (decisiones D1–D54)
 │   ├── PROJECT_CONTEXT.md · ARCHITECTURE.md · ROADMAP.md · DECISIONS.md · LEARNING_LOG.md
 └── frontend/
     └── index.html            ← solo un <h1> de prueba
@@ -72,7 +72,7 @@ Localmente existe `lambda.zip` (artefacto de deploy, ignorado por `.gitignore`).
 | `GET /controls`, `GET /controls/{id}`, `POST /controls` | ✅ código [CONFIRMADO-REPO] + pruebas con `curl` [CONVERSACIÓN] |
 | `PATCH /controls/{id}` | ✅ código [CONFIRMADO-REPO] + 11 pruebas con `curl` [CONVERSACIÓN, 2026-10-13] |
 | `DELETE /controls/{id}` | ✅ código [CONFIRMADO-REPO, sin commitear al 2026-10-13] + 6 pruebas con `curl` [CONVERSACIÓN] |
-| Eliminar `POST /hello` (ruta de prueba) | [PENDIENTE] |
+| Eliminar `POST /hello` (ruta de prueba) | ✅ código, ruta y statement eliminados (verificado 2026-10-13) |
 | Frontend real, Cognito, CloudWatch avanzado, checks + findings, CDK, CI, tests | [PENDIENTE] (Etapas 7–16) |
 
 Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
