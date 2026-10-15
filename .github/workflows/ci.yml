@@ -1,0 +1,35 @@
+# CI mínimo (Etapa 13a, D60): tests unitarios sin AWS + chequeo de identificadores reales.
+# No tiene credenciales de AWS: no puede leer ni modificar la cuenta.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# Least privilege para el GITHUB_TOKEN: solo leer el código del repo
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Tests y chequeo de identificadores
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      # Actions fijadas por commit SHA (inmutable); el comentario indica la versión
+      - name: Bajar el código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # no dejar el token guardado en .git/config del runner
+
+      - name: Instalar Python (la misma versión que la Lambda)
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+
+      - name: Tests unitarios
+        run: python -m unittest discover -s tests -v
+
+      - name: Chequeo de identificadores reales
+        run: python scripts/check_identifiers.py
