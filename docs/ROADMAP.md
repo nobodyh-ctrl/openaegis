@@ -25,8 +25,8 @@ Orden original 0–16. **Cambio acordado:** Lambda pasó a ser la Etapa 4 y API 
 | 5 | API Gateway (HTTP API) | ✅ | [05-api-gateway.md](05-api-gateway.md) |
 | 6 | DynamoDB + CRUD de controles | ✅ (2026-10-13) | [06-dynamodb.md](06-dynamodb.md) |
 | 7 | IAM: auditoría y least privilege | ✅ (2026-10-15) | [07-iam.md](07-iam.md) |
-| **13a** | **CI mínimo (adelantado, D60)**: tests unitarios sin AWS + chequeo de identificadores | ⏳ **EN CURSO** — archivos escritos y verificados localmente (39 tests OK; chequeo OK y falla ante un ID falso); falta el primer run en GitHub | — |
-| 8 | Integración: frontend real contra la API | Siguiente, después de la 13a | — |
+| 13a | CI mínimo (adelantado, D60): tests unitarios sin AWS + chequeo de identificadores | ✅ (2026-10-15) | [13a-ci-minimo.md](13a-ci-minimo.md) |
+| **8** | **Integración: frontend real contra la API** | ⏳ **SIGUIENTE** | — |
 | 9 | Cognito (autenticación; autorizador JWT del HTTP API) | [PENDIENTE] | — |
 | 10 | CloudWatch: métricas, alarmas, debugging, manejo de errores centralizado | [PENDIENTE] | — |
 | 11 | boto3 + Security Checks read-only → findings → score → dashboard | [PENDIENTE] | — |

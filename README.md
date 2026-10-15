@@ -3,7 +3,7 @@
 > Aplicación serverless en AWS para gestionar controles de seguridad cloud y, más adelante, evaluarlos con checks automáticos de solo lectura.
 > Proyecto **educativo y de portfolio**, construido etapa por etapa para entender cada servicio de AWS que usa. *(Antes: "Cloud Security Checklist".)*
 
-**Estado:** V1 en desarrollo. Etapas 0–7 completas (CRUD de controles funcionando y permisos auditados); sigue la Etapa 8 (frontend). Ver [Roadmap](#roadmap).
+**Estado:** V1 en desarrollo. Etapas 0–7 completas (CRUD de controles funcionando y permisos auditados) + CI mínimo; sigue la Etapa 8 (frontend). Ver [Roadmap](#roadmap).
 
 ---
 
@@ -26,6 +26,7 @@ En las próximas etapas va a ejecutar **checks automáticos de solo lectura** co
 | `POST /controls` — crear un control (validación de tipos, largos, enums, `code` único, allowlist de campos) | ✅ |
 | `PATCH /controls/{id}` — editar campos o cambiar el estado (404 sin crear items, 409 por `code` de otro control, allowlist) | ✅ |
 | `DELETE /controls/{id}` — eliminar un control (404 si no existe, devuelve el item borrado) | ✅ |
+| CI con GitHub Actions: tests unitarios + chequeo de identificadores reales en cada push, sin credenciales de AWS | ✅ |
 | Frontend real, autenticación, checks, findings, score, IaC, CI, tests automatizados | 🔜 Ver roadmap |
 
 ## Arquitectura
@@ -138,7 +139,7 @@ Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 | Doc | Contenido |
 |---|---|
-| [docs/00](docs/00-account-setup.md) … [docs/07](docs/07-iam.md) | Una etapa por documento: conceptos, decisiones, configuración, verificación, costos, cómo revertir |
+| [docs/00](docs/00-account-setup.md) … [docs/07](docs/07-iam.md) · [docs/13a](docs/13a-ci-minimo.md) | Una etapa por documento: conceptos, decisiones, configuración, verificación, costos, cómo revertir |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Arquitectura implementada |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Todas las decisiones técnicas (índice) |
 | [docs/architecture-decisions/](docs/architecture-decisions/) | ADRs de las decisiones grandes: serverless, S3 + CloudFront, HTTP API, DynamoDB, modelo de despliegue |

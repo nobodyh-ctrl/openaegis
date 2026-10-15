@@ -52,7 +52,7 @@ openaegis/
 │   ├── repository.py         ← ÚNICO módulo que usa boto3 / DynamoDB
 │   └── responses.py          ← formato de entrada/salida de API Gateway (payload 2.0)
 ├── docs/
-│   ├── 00..07-*.md           ← un doc por etapa (decisiones D1–D58)
+│   ├── 00..07-*.md, 13a-ci-minimo.md  ← un doc por etapa (decisiones D1–D63)
 │   ├── architecture-decisions/  ← ADR-001 a ADR-005 (decisiones grandes)
 │   ├── PROJECT_CONTEXT.md · ARCHITECTURE.md · ROADMAP.md · DECISIONS.md · LEARNING_LOG.md
 ├── frontend/
@@ -78,7 +78,9 @@ Localmente existe `lambda.zip` (artefacto de deploy, ignorado por `.gitignore`).
 | `PATCH /controls/{id}` | ✅ código [CONFIRMADO-REPO] + 11 pruebas con `curl` [CONVERSACIÓN, 2026-10-13] |
 | `DELETE /controls/{id}` | ✅ código [CONFIRMADO-REPO, sin commitear al 2026-10-13] + 6 pruebas con `curl` [CONVERSACIÓN] |
 | Eliminar `POST /hello` (ruta de prueba) | ✅ código, ruta y statement eliminados (verificado 2026-10-13) |
-| Frontend real, Cognito, CloudWatch avanzado, checks + findings, CDK, CI, tests | [PENDIENTE] (Etapas 7–16) |
+| IAM auditado (Etapa 7) | ✅ D56–D58 aplicados y verificados (2026-10-15) |
+| CI mínimo (Etapa 13a): 39 tests + chequeo de identificadores | ✅ [CONFIRMADO-REPO] + run verde en GitHub (2026-10-15) |
+| Frontend real, Cognito, CloudWatch avanzado, checks + findings, CDK, `cdk synth` en CI, tests de `controls.py` | [PENDIENTE] (Etapas 8–16) |
 
 Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -178,7 +180,7 @@ El usuario pidió un **tutor técnico exigente, no un generador de código**. Re
 ## 10. Cómo documentar
 
 - **Un doc por etapa** en `docs/NN-tema.md`, con la estructura de los existentes: objetivo, conceptos, decisiones (`D#`), configuración, verificación, debugging, costos, relación con Cloud Security, cómo revertir, cosas que NO hacer. Con marcadores en lugar de identificadores reales.
-- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D61**), y al doc de su etapa.
+- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D64**), y al doc de su etapa.
 - **ADRs** (`docs/architecture-decisions/NNN-tema.md`, D55): solo para decisiones **grandes**; `DECISIONS.md` es el índice de todas. Formato: Contexto, Decisión, Por qué, Alternativas consideradas, Ventajas, Desventajas, Consideraciones de seguridad, Consideraciones de costo, Consecuencias, Evolución futura (más estado, fecha y decisiones relacionadas). Existen ADR-001 a ADR-005; el siguiente es **006**. Al crear uno, agregarlo a la tabla de `DECISIONS.md`.
 - **README:** contar la evolución, con ventajas **y desventajas**; **solo lo implementado**.
 - Actualizar ROADMAP y ARCHITECTURE cuando algo cambie de estado.

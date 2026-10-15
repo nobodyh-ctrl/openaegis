@@ -1,7 +1,7 @@
 # Decisiones técnicas
 
 > Índice de **todas** las decisiones del proyecto. D1–D31 están desarrolladas en el doc de cada etapa (acá solo el resumen y el enlace). D32–D54 (Etapa 6) están acá con sus alternativas completas y resumidas en [06-dynamodb.md](06-dynamodb.md).
-> **Próximo número libre: D61.** Cada decisión nueva se agrega acá y en el doc de su etapa.
+> **Próximo número libre: D64.** Cada decisión nueva se agrega acá y en el doc de su etapa.
 > Las decisiones grandes tienen además un **ADR** completo (D55):
 >
 > | ADR | Tema | Decisiones |
@@ -83,6 +83,9 @@ Todas tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSACIÓN]
 | D58 | Etapa 7 · verificación | **IAM Access Analyzer solo de _external access_** (tipo `ACCOUNT`, zona de confianza = la cuenta). Decidida el 2026-10-13 | Gratis según la página oficial de precios; verifica con una herramienta de AWS que ninguna resource-based policy dé acceso fuera de la cuenta | Analyzers de *unused access* (USD 0,20 por rol/usuario/mes) e *internal access* (USD 9 por recurso/región/mes): con costo y sin necesidad actual. **Creado y verificado el 2026-10-15**: `openaegis-external-access`, tipo `ACCOUNT`, analizó 1 bucket, 1 función, 1 tabla y 6 roles; **0 findings activos** |
 | D59 | Alcance de la Etapa 13 (CI/CD) | **Opción A: CI sin credenciales de AWS** en la V1 (tests, chequeos y, con CDK, `cdk synth`). Deploy automático y OIDC → Bloque B. Decidida el 2026-10-15 | Resuelve la contradicción entre el prompt original (CI/CD en la V1) y el documento de evolución (CI/CD en el Bloque B): la V1 queda probada automáticamente sin que el CI toque la cuenta | Opción B: todo el CI/CD al Bloque B |
 | D60 | Orden del roadmap: CI | Adelantar una **Etapa 13a — CI mínimo** antes de la Etapa 8: tests unitarios de `validation.py` y `responses.py` (`unittest`, sin dependencias) + chequeo de identificadores reales en el repo. `cdk synth` se suma en la Etapa 12. Decidida el 2026-10-15 | Dos problemas actuales: el código no se verifica antes del deploy, y el riesgo de publicar IDs (cuenta, API, CloudFront) crece en la Etapa 8, cuando el frontend necesite la URL de la API | Hacerlo en la Etapa 13 como estaba previsto; pasarlo al Bloque B |
+| D61 | CI · actions de terceros | Fijadas por **commit SHA**, con la versión en un comentario (`checkout` v7.0.1, `setup-python` v7.0.0, verificadas con `gh`). 2026-10-15 | Una etiqueta se puede mover a otro código; un SHA es inmutable (*supply chain*) | Etiquetas `@v7` |
+| D62 | CI · fugas de identificadores | Script **propio** `scripts/check_identifiers.py` (sin dependencias): cuenta, API, CloudFront, access keys; revisa también el XML de los `.drawio.png`; **enmascara** lo que encuentra. 2026-10-15 | Sin *supply chain* extra; distingue los marcadores del proyecto; los logs de un repo público son públicos | gitleaks, trufflehog (contra: dependencia externa; a favor: más patrones) |
+| D63 | CI · permisos del pipeline | `permissions: contents: read`, `persist-credentials: false`, `timeout-minutes: 5`, Python 3.14 (igual que la Lambda). 2026-10-15 | Least privilege aplicado al CI; probar con la misma versión que producción | Valores por defecto |
 
 ## Propuestas (no decididas)
 
