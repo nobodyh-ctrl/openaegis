@@ -52,6 +52,7 @@ class ValidateFieldsCreateTests(unittest.TestCase):
         for value in ("", "   "):
             with self.subTest(value=value):
                 _, err = validate_fields(valid_body(title=value))
+                self.assertIsNotNone(err, "el POST aceptó un obligatorio vacío")
                 self.assertIn("no puede estar vacío", err)
 
     def test_tipo_distinto_de_texto(self):
@@ -111,6 +112,7 @@ class ValidateFieldsPartialTests(unittest.TestCase):
         for value in ("", "   "):
             with self.subTest(value=value):
                 _, err = validate_fields({"title": value}, partial=True)
+                self.assertIsNotNone(err, "el PATCH aceptó un obligatorio vacío")
                 self.assertIn("no puede estar vacío", err)
 
     def test_las_reglas_de_tipo_y_enum_siguen_aplicando(self):
