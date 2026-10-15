@@ -24,13 +24,14 @@ Orden original 0–16. **Cambio acordado:** Lambda pasó a ser la Etapa 4 y API 
 | 4 | Lambda + Python | ✅ | [04-lambda.md](04-lambda.md) |
 | 5 | API Gateway (HTTP API) | ✅ | [05-api-gateway.md](05-api-gateway.md) |
 | 6 | DynamoDB + CRUD de controles | ✅ (2026-10-13) | [06-dynamodb.md](06-dynamodb.md) |
-| **7** | **IAM (least privilege real)** | ⏳ **EN CURSO** (auditoría hecha 2026-10-13; D56–D58 aplicados y verificados 2026-10-15; faltan checkpoint y `07-iam.md`) | — |
-| 8 | Integración: frontend real contra la API | [PENDIENTE] | — |
+| 7 | IAM: auditoría y least privilege | ✅ (2026-10-15) | [07-iam.md](07-iam.md) |
+| **13a** | **CI mínimo (adelantado, D60)**: tests unitarios sin AWS + chequeo de identificadores | ⏳ **EN CURSO** — archivos escritos y verificados localmente (39 tests OK; chequeo OK y falla ante un ID falso); falta el primer run en GitHub | — |
+| 8 | Integración: frontend real contra la API | Siguiente, después de la 13a | — |
 | 9 | Cognito (autenticación; autorizador JWT del HTTP API) | [PENDIENTE] | — |
 | 10 | CloudWatch: métricas, alarmas, debugging, manejo de errores centralizado | [PENDIENTE] | — |
 | 11 | boto3 + Security Checks read-only → findings → score → dashboard | [PENDIENTE] | — |
 | 12 | AWS CDK (Python): toda la infraestructura como código; habilita el modelo self-hosted | [PENDIENTE] | — |
-| 13 | GitHub Actions / CI | [PENDIENTE] — **alcance por decidir** (ver abajo) | — |
+| 13 | GitHub Actions / CI | [PENDIENTE] — opción **A** (D59): se completa con `cdk synth` después de la Etapa 12 | — |
 | 14 | Testing | [PENDIENTE] | — |
 | 15 | Documentación: README completo y ADRs | [PENDIENTE] (se avanza en cada etapa) | — |
 | 16 | Demo + LinkedIn + GitHub | [PENDIENTE] | — |
@@ -50,7 +51,7 @@ Orden original 0–16. **Cambio acordado:** Lambda pasó a ser la Etapa 4 y API 
 
 **Etapas 7 a 16**
 
-9. Etapa 7 — revisar IAM de punta a punta (rol de la Lambda, resource-based policies, bucket policy) y cerrar lo que quedó amplio.
+9. ✅ Etapa 7 — IAM: inventario, 5 hallazgos con severidad, D56–D58 aplicados y verificados, checkpoint 5/5, [07-iam.md](07-iam.md).
 10. Etapa 8 — frontend real (HTML/CSS/JS simple) que consuma la API: listar, crear, editar, eliminar, cambiar estado.
 11. Etapa 9 — Cognito User Pool + autorizador JWT en el HTTP API.
 12. Etapa 10 — CloudWatch: métricas (*Errors*, *Throttles*, *Duration*), alarmas (verificar costo), manejo de errores centralizado, logs estructurados.
@@ -61,16 +62,9 @@ Orden original 0–16. **Cambio acordado:** Lambda pasó a ser la Etapa 4 y API 
 17. Etapa 15 — README completo, ADRs, lecciones aprendidas.
 18. Etapa 16 — demo (Deploy → Test → Demo/screenshots/video → Destroy → Verify), publicación de LinkedIn **factual**.
 
-### Decisión pendiente: alcance de la Etapa 13
+### Alcance de la Etapa 13 (decidido el 2026-10-15)
 
-El prompt original pone GitHub Actions + CI/CD + OIDC **en la V1**; el documento de evolución pone CI/CD y OIDC **en el Bloque B**.
-
-| Opción | Qué incluye la V1 |
-|---|---|
-| **A (recomendada)** | CI mínimo: tests + `cdk synth` en cada push, **sin deploy y sin credenciales de AWS**. OIDC y deploy automático, en el Bloque B |
-| B | Todo al Bloque B; la V1 se despliega a mano con `cdk deploy` |
-
-[INCIERTO] El usuario todavía no eligió. Hay que decidirlo antes de la Etapa 13.
+El prompt original ponía GitHub Actions + CI/CD + OIDC **en la V1**; el documento de evolución, **en el Bloque B**. Se eligió la **opción A** (D59): CI **sin credenciales de AWS** en la V1 (tests, chequeos y `cdk synth`); deploy automático y OIDC en el Bloque B. Una primera parte se adelantó como **Etapa 13a** (D60), antes del frontend: tests unitarios sin AWS + chequeo de identificadores reales. Después de la 13a, actualizar la URL del remoto local a `openaegis` y, con aprobación del usuario, mover las memorias de Engram al nuevo nombre de proyecto.
 
 ### Checkpoint final: "V1 → V2 Architecture Review"
 

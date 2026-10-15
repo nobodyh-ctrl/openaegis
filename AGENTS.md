@@ -18,7 +18,7 @@ Convenciones de estado usadas en toda la documentación:
 
 Aplicación web **serverless en AWS** para **gestionar controles de seguridad cloud** (S3 Block Public Access, cifrado de S3, CloudTrail habilitado, MFA, permisos, logging…) y, más adelante, **ejecutar checks automáticos de solo lectura** con boto3 que generen **findings**.
 
-- Proyecto **educativo y de portfolio**. Empezó como **"Cloud Security Checklist"**; el nombre **OpenAegis** se adoptó el 2026-10-12. Los recursos de AWS, el remoto de GitHub (`aws-cloud-security-checklist`) y el `frontend/index.html` **siguen usando el nombre viejo**.
+- Proyecto **educativo y de portfolio**. Empezó como **"Cloud Security Checklist"**; el nombre **OpenAegis** se adoptó el 2026-10-12. El **repo de GitHub ya se llama `openaegis`** (verificado el 2026-10-15; la URL vieja `aws-cloud-security-checklist` redirige). Los recursos de AWS (`cloud-sec-checklist-*`), la URL del remoto local y el `frontend/index.html` **siguen usando el nombre viejo**.
 - **No** compite con Prowler, ScoutSuite, Wiz ni Prisma Cloud, y **no** debe presentarse como algo que garantiza la seguridad de una cuenta.
 - **Modelo de despliegue (V1):** self-hosted y single-account. Cada usuario despliega su copia en **su** cuenta y la app evalúa **esa** cuenta. Ver [docs/DECISIONS.md](docs/DECISIONS.md) (D48).
 
@@ -52,14 +52,18 @@ openaegis/
 │   ├── repository.py         ← ÚNICO módulo que usa boto3 / DynamoDB
 │   └── responses.py          ← formato de entrada/salida de API Gateway (payload 2.0)
 ├── docs/
-│   ├── 00..06-*.md           ← un doc por etapa (decisiones D1–D54)
+│   ├── 00..07-*.md           ← un doc por etapa (decisiones D1–D58)
 │   ├── architecture-decisions/  ← ADR-001 a ADR-005 (decisiones grandes)
 │   ├── PROJECT_CONTEXT.md · ARCHITECTURE.md · ROADMAP.md · DECISIONS.md · LEARNING_LOG.md
-└── frontend/
-    └── index.html            ← solo un <h1> de prueba
+├── frontend/
+│   └── index.html            ← solo un <h1> de prueba
+├── tests/                    ← tests unitarios con unittest (sin AWS): validation, responses, check_identifiers
+├── scripts/
+│   └── check_identifiers.py  ← falla si un archivo versionado tiene un ID real (cuenta, API, CloudFront, access key)
+└── .github/workflows/ci.yml  ← CI mínimo (Etapa 13a): tests + chequeo de identificadores, sin credenciales de AWS
 ```
 
-Localmente existe `lambda.zip` (artefacto de deploy, ignorado por `.gitignore`). No hay `tests/`, `infra/` ni `.github/` todavía.
+Localmente existe `lambda.zip` (artefacto de deploy, ignorado por `.gitignore`). No hay `infra/` todavía (CDK, Etapa 12).
 
 ## 4. Qué está implementado y qué falta
 
@@ -134,7 +138,14 @@ aws lambda get-function-configuration --function-name cloud-sec-checklist-api
 aws lambda get-policy --function-name cloud-sec-checklist-api
 ```
 
-No hay tests automatizados todavía (Etapa 14).
+**Tests y chequeos locales** (los mismos que corre el CI en cada push):
+
+```powershell
+python -m unittest discover -s tests -v
+python scripts/check_identifiers.py
+```
+
+Cubren `validation.py`, `responses.py` y el propio chequeo. `controls.py` todavía no se testea: importar `repository.py` requiere `TABLE_NAME` y boto3 (Etapa 14).
 
 ## 8. Reglas de seguridad y de trabajo (obligatorias)
 
@@ -167,7 +178,7 @@ El usuario pidió un **tutor técnico exigente, no un generador de código**. Re
 ## 10. Cómo documentar
 
 - **Un doc por etapa** en `docs/NN-tema.md`, con la estructura de los existentes: objetivo, conceptos, decisiones (`D#`), configuración, verificación, debugging, costos, relación con Cloud Security, cómo revertir, cosas que NO hacer. Con marcadores en lugar de identificadores reales.
-- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D59**), y al doc de su etapa.
+- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D61**), y al doc de su etapa.
 - **ADRs** (`docs/architecture-decisions/NNN-tema.md`, D55): solo para decisiones **grandes**; `DECISIONS.md` es el índice de todas. Formato: Contexto, Decisión, Por qué, Alternativas consideradas, Ventajas, Desventajas, Consideraciones de seguridad, Consideraciones de costo, Consecuencias, Evolución futura (más estado, fecha y decisiones relacionadas). Existen ADR-001 a ADR-005; el siguiente es **006**. Al crear uno, agregarlo a la tabla de `DECISIONS.md`.
 - **README:** contar la evolución, con ventajas **y desventajas**; **solo lo implementado**.
 - Actualizar ROADMAP y ARCHITECTURE cuando algo cambie de estado.

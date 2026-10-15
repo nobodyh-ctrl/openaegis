@@ -1,7 +1,7 @@
 # Decisiones técnicas
 
 > Índice de **todas** las decisiones del proyecto. D1–D31 están desarrolladas en el doc de cada etapa (acá solo el resumen y el enlace). D32–D54 (Etapa 6) están acá con sus alternativas completas y resumidas en [06-dynamodb.md](06-dynamodb.md).
-> **Próximo número libre: D59.** Cada decisión nueva se agrega acá y en el doc de su etapa.
+> **Próximo número libre: D61.** Cada decisión nueva se agrega acá y en el doc de su etapa.
 > Las decisiones grandes tienen además un **ADR** completo (D55):
 >
 > | ADR | Tema | Decisiones |
@@ -81,13 +81,15 @@ Todas tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSACIÓN]
 | D56 | Etapa 7 · H1: `logs:CreateLogGroup` | **Restringirlo al log group de la función** (versión `v2` de la policy creada por la consola; `v1` queda para rollback). Decidida el 2026-10-13; **aplicada y verificada el 2026-10-15** con `simulate-principal-policy`: propio → `allowed`, otro → `implicitDeny` | Least privilege sin perder la capacidad de recrear el log group si se borra | Quitar la acción (si se borra el log group, la Lambda deja de loguear en silencio); dejarlo sobre toda la cuenta |
 | D57 | Etapa 7 · H2: permisos de invocación | **Un statement por ruta, con el método** en el `SourceArn` (`.../*/GET/controls`), en lugar de uno por path con método comodín. Se agregan los nuevos antes de borrar los viejos. Decidida el 2026-10-13; **aplicada y verificada el 2026-10-15**: 5 statements `apigw-<método>-<ruta>`, las 5 rutas responden 200 antes y después de borrar los 2 viejos | Precisión: solo las 5 rutas del CRUD pueden invocar la Lambda. Práctica de `add-permission` / `remove-permission` | Dejar el comodín hasta CDK |
 | D58 | Etapa 7 · verificación | **IAM Access Analyzer solo de _external access_** (tipo `ACCOUNT`, zona de confianza = la cuenta). Decidida el 2026-10-13 | Gratis según la página oficial de precios; verifica con una herramienta de AWS que ninguna resource-based policy dé acceso fuera de la cuenta | Analyzers de *unused access* (USD 0,20 por rol/usuario/mes) e *internal access* (USD 9 por recurso/región/mes): con costo y sin necesidad actual. **Creado y verificado el 2026-10-15**: `openaegis-external-access`, tipo `ACCOUNT`, analizó 1 bucket, 1 función, 1 tabla y 6 roles; **0 findings activos** |
+| D59 | Alcance de la Etapa 13 (CI/CD) | **Opción A: CI sin credenciales de AWS** en la V1 (tests, chequeos y, con CDK, `cdk synth`). Deploy automático y OIDC → Bloque B. Decidida el 2026-10-15 | Resuelve la contradicción entre el prompt original (CI/CD en la V1) y el documento de evolución (CI/CD en el Bloque B): la V1 queda probada automáticamente sin que el CI toque la cuenta | Opción B: todo el CI/CD al Bloque B |
+| D60 | Orden del roadmap: CI | Adelantar una **Etapa 13a — CI mínimo** antes de la Etapa 8: tests unitarios de `validation.py` y `responses.py` (`unittest`, sin dependencias) + chequeo de identificadores reales en el repo. `cdk synth` se suma en la Etapa 12. Decidida el 2026-10-15 | Dos problemas actuales: el código no se verifica antes del deploy, y el riesgo de publicar IDs (cuenta, API, CloudFront) crece en la Etapa 8, cuando el frontend necesite la URL de la API | Hacerlo en la Etapa 13 como estaba previsto; pasarlo al Bloque B |
 
 ## Propuestas (no decididas)
 
 | Tema | Propuesta | Estado |
 |---|---|---|
 | Testing (Etapa 14) | **moto** para tests unitarios (sin Docker). **Floci** como candidato de tests de integración en el Bloque B (no aplica IAM por defecto; requiere el socket de Docker). AWS real para lo que dependa de IAM | [PROPUESTA] |
-| Alcance de la Etapa 13 | Opción A (CI mínimo sin credenciales) vs. B (todo al Bloque B). Ver [ROADMAP.md](ROADMAP.md) | [INCIERTO] sin elegir |
+| Alcance de la Etapa 13 | Resuelto: opción A (D59) y Etapa 13a adelantada (D60) | ✅ |
 | Permisos de los checks (Etapa 11) | `SecurityAudit` (administrada por AWS, simple, da mucho más de lo necesario) vs. policy propia mínima (least privilege estricto, hay que mantenerla) | [PENDIENTE] |
 | CLI | Reutilizar los checks desde una CLI local | [PROPUESTA] para la revisión V1 → V2 |
 | Terraform | CDK para la app, Terraform para un *security lab* | Hipótesis del usuario, no decidida |
@@ -95,9 +97,8 @@ Todas tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSACIÓN]
 
 ## Preguntas abiertas para el usuario
 
-1. **Etapa 13:** ¿opción A o B?
-2. **Nombre:** ¿renombrar el repo de GitHub (`aws-cloud-security-checklist`) a OpenAegis? ¿Y los recursos de AWS (`cloud-sec-checklist-*`) cuando se recreen con CDK?
-3. **Etapa 11:** ¿`SecurityAudit` o policy propia?
-4. **Enums:** ¿aceptar `"high"` normalizando con `.upper()`, o mantener el 400?
-5. **Opcionales vacíos:** hoy `"description": ""` se guarda como string vacío. ¿Guardarlo así, omitir el atributo o, en `PATCH`, usarlo para **borrar** el campo (`REMOVE`)?
-6. **`CLAUDE.md`:** Claude Code lee automáticamente `CLAUDE.md`, no `AGENTS.md`. ¿Crear un `CLAUDE.md` mínimo que remita a `AGENTS.md`?
+1. **Nombre:** el repo de GitHub **ya se llama `openaegis`** (verificado el 2026-10-15). Quedan: ¿actualizar la URL del remoto local? ¿Renombrar los recursos de AWS (`cloud-sec-checklist-*`) cuando se recreen con CDK? (Engram toma el nombre del proyecto del remoto.)
+2. **Etapa 11:** ¿`SecurityAudit` o policy propia?
+3. **Enums:** ¿aceptar `"high"` normalizando con `.upper()`, o mantener el 400?
+4. **Opcionales vacíos:** hoy `"description": ""` se guarda como string vacío. ¿Guardarlo así, omitir el atributo o, en `PATCH`, usarlo para **borrar** el campo (`REMOVE`)?
+5. **`CLAUDE.md`:** Claude Code lee automáticamente `CLAUDE.md`, no `AGENTS.md`. ¿Crear un `CLAUDE.md` mínimo que remita a `AGENTS.md`?

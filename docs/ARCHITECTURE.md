@@ -51,7 +51,7 @@ Todos creados **a mano en la consola**, con tag `Project = cloud-security-checkl
 | Execution role `cloud-sec-checklist-api-role-<sufijo>` | Trust: `lambda.amazonaws.com`. Policy de logs creada por la consola + inline **`controls-table-crud`** (ver §5) | [04-lambda.md](04-lambda.md) |
 | Log group `/aws/lambda/cloud-sec-checklist-api` | Retención 1 semana | [04-lambda.md](04-lambda.md) |
 | HTTP API `cloud-sec-checklist-http-api` | Stage `$default` con auto-deploy · throttling rate 10 / burst 20 · CORS Allow-Origin = solo `https://<distribucion>.cloudfront.net` · Allow-Headers `content-type` · Allow-Methods `GET`, `POST`, `PATCH`, `DELETE` · AllowCredentials `false` · MaxAge `0` (verificado con `get-api` el 2026-10-13). Con Cognito (Etapa 9) habrá que sumar `authorization` a Allow-Headers | [05-api-gateway.md](05-api-gateway.md) |
-| IAM Access Analyzer `openaegis-external-access` | Tipo `ACCOUNT` (*external access*, gratis), zona de confianza = la cuenta, `us-east-1`. Creado el 2026-10-15; 0 findings activos al crearlo. Detectivo: no modifica nada | Pendiente: `07-iam.md` |
+| IAM Access Analyzer `openaegis-external-access` | Tipo `ACCOUNT` (*external access*, gratis), zona de confianza = la cuenta, `us-east-1`. Creado el 2026-10-15; 0 findings activos al crearlo. Detectivo: no modifica nada | [07-iam.md](07-iam.md) |
 | DynamoDB `cloud-sec-checklist-controls` | PK `id` (String), sin sort key, on-demand, Standard, cifrado *Owned by Amazon DynamoDB*, **deletion protection desactivado** (a propósito, para la migración a CDK), sin PITR, sin GSI | [06-dynamodb.md](06-dynamodb.md) |
 
 ### Rutas configuradas en API Gateway
