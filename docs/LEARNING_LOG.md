@@ -41,6 +41,7 @@
 | 17 | El usuario a veces pega **IDs de cuenta y de API sin tapar** | Salidas pegadas en la conversación | Recordatorio | Tapar identificadores antes de compartir; en el repo, siempre marcadores |
 | 18 | `bash: id: No such file or directory` al copiar un ejemplo con `<id>` | Salida de CloudShell | Reemplazar el marcador | En bash, `<` y `>` son redirecciones |
 | 19 | Se documentó "un statement por ruta" en la resource-based policy de la Lambda, pero `PATCH` y `DELETE` funcionaron sin statements nuevos | `aws lambda get-policy`: 3 statements, `SourceArn` `.../*/*/<path>` | Docs corregidos | El segundo `*` del `SourceArn` es el **método**: el permiso es por **path**. Verificar la configuración real en lugar de suponerla |
+| 20 | El simulador de IAM devolvió **una** fila para **dos** recursos, con un patrón (`arn:aws:logs:${Region}:${Account}:.+`) en lugar de un ARN | Salida de `simulate-principal-policy` | `--query` sobre `EvaluationResults[0].ResourceSpecificResults[]` | Con varios recursos, el resultado general es por **acción**; el detalle por recurso está anidado. Un `--query` mal hecho puede **ocultar** justo el dato que importa |
 
 ## 3. Predicciones del `PATCH`
 
@@ -49,3 +50,4 @@
 - Unicidad del `code` al editar: el usuario respondió bien que `S3-001` → `{"code": "S3-004"}` da **409** (encuentra a **otro** control).
 - *Sin statement en la resource-based policy, ¿quién responde?* El usuario eligió bien: API Gateway responde 500 y la Lambda no deja logs.
 - *¿Un `POST` a una ruta borrada de API Gateway deja log en la Lambda?* El usuario predijo que sí; **no**: el 404 `{"message":"Not Found"}` lo genera API Gateway sin invocar la Lambda. Hay dos 404 distintos: el de API Gateway (la ruta no existe en la API) y el del router de `handler.py` (la ruta existe en la API pero no en `ROUTES`).
+- *Etapa 7: ¿por qué `implicitDeny` y no `explicitDeny`?* El usuario eligió la b ("la v2 tiene un Deny"), con la pista no supo; se explicó: la v2 solo tiene `Allow`, así que es el deny by default.

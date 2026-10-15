@@ -203,7 +203,7 @@ Sin `dynamodb:*`, sin `DeleteTable` y sin otras tablas. `ConditionExpression` y 
 | `GET /controls`, `POST /controls` | Uno, `SourceArn` `.../*/*/controls` |
 | `GET /controls/{id}`, `PATCH /controls/{id}`, `DELETE /controls/{id}` | Uno, `SourceArn` `.../*/*/controls/{id}` |
 
-El permiso es **por path**: el segundo `*` del `SourceArn` es el método. CORS: Allow-Methods `GET`, `POST`, `PATCH`, `DELETE`. La ruta de prueba `POST /hello` y su statement se eliminaron.
+El permiso es **por path**: el segundo `*` del `SourceArn` es el método. *(Desde la Etapa 7 hay un statement por ruta, con el método explícito: D57.)* CORS: Allow-Methods `GET`, `POST`, `PATCH`, `DELETE`. La ruta de prueba `POST /hello` y su statement se eliminaron.
 
 ### 4.5 Modelo de datos y backend
 

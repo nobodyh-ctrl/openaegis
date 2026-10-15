@@ -167,7 +167,13 @@ El usuario pidió un **tutor técnico exigente, no un generador de código**. Re
 ## 10. Cómo documentar
 
 - **Un doc por etapa** en `docs/NN-tema.md`, con la estructura de los existentes: objetivo, conceptos, decisiones (`D#`), configuración, verificación, debugging, costos, relación con Cloud Security, cómo revertir, cosas que NO hacer. Con marcadores en lugar de identificadores reales.
-- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D56**), y al doc de su etapa.
+- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D59**), y al doc de su etapa.
 - **ADRs** (`docs/architecture-decisions/NNN-tema.md`, D55): solo para decisiones **grandes**; `DECISIONS.md` es el índice de todas. Formato: Contexto, Decisión, Por qué, Alternativas consideradas, Ventajas, Desventajas, Consideraciones de seguridad, Consideraciones de costo, Consecuencias, Evolución futura (más estado, fecha y decisiones relacionadas). Existen ADR-001 a ADR-005; el siguiente es **006**. Al crear uno, agregarlo a la tabla de `DECISIONS.md`.
 - **README:** contar la evolución, con ventajas **y desventajas**; **solo lo implementado**.
 - Actualizar ROADMAP y ARCHITECTURE cuando algo cambie de estado.
+
+## 11. Memoria y forma de trabajo (tenet)
+
+- **Memoria persistente: Engram** (decidido el 2026-10-14). Proyecto en Engram: `aws-cloud-security-checklist` (se deriva del remoto; se revisa si se renombra el repo). Al empezar una sesión: `mem_current_project` + `mem_search` del tema. Se guardan **solo** hechos que no están en el repo (preferencias de enseñanza, restricciones de la cuenta, resumen de cada sesión). Las decisiones técnicas viven en `docs/DECISIONS.md`, que es la fuente de verdad.
+- **OpenSpec: no se usa por ahora**; se reevalúa en la revisión V1 → V2. Cada cambio declara igual su alcance y sus criterios de aceptación (el "Esperado" de cada paso).
+- Excepciones a los valores por defecto de tenet, con motivo: docs en **español** (convención del proyecto) e IaC con **AWS CDK** en la V1 (la comparación con Terraform es parte del Bloque B).

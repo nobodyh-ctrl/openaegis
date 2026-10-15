@@ -3,7 +3,7 @@
 > **Estado:** ✅ completada
 > **Costo de la etapa:** fracciones de centavo (algunos cientos de requests de prueba)
 >
-> **Cambios posteriores (Etapa 6):** se agregaron las 5 rutas de `/controls` (un statement por **path** en la resource-based policy); CORS pasó a `GET`, `POST`, `PATCH`, `DELETE`; el handler pasó a un router por `routeKey` repartido en 5 módulos. `POST /hello` se **eliminó** el 2026-10-13 (código, ruta y statement); los ejemplos de este doc la usan porque era la ruta de esta etapa. Estado actual: [ARCHITECTURE.md](ARCHITECTURE.md).
+> **Cambios posteriores (Etapa 6):** se agregaron las 5 rutas de `/controls` (un statement por **path** en la resource-based policy; desde la Etapa 7, uno por **ruta** con el método: D57); CORS pasó a `GET`, `POST`, `PATCH`, `DELETE`; el handler pasó a un router por `routeKey` repartido en 5 módulos. `POST /hello` se **eliminó** el 2026-10-13 (código, ruta y statement); los ejemplos de este doc la usan porque era la ruta de esta etapa. Estado actual: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## 1. Objetivo
 
@@ -380,7 +380,7 @@ Según la [página oficial de precios de API Gateway](https://aws.amazon.com/api
 | Paso | Acción | Motivo |
 |---|---|---|
 | 1 | API Gateway → la API → **Delete** | — |
-| 2 | Lambda → *Configuration* → *Permissions* → borrar **todos** los statements de API Gateway (desde la Etapa 6 hay uno por path) | Quedan huérfanos, apuntando a una API inexistente |
+| 2 | Lambda → *Configuration* → *Permissions* → borrar **todos** los statements de API Gateway (desde la Etapa 7 hay uno por ruta: 5) | Quedan huérfanos, apuntando a una API inexistente |
 | 3 | Verificar que la API no aparece y que la Lambda no tiene statements | *Destroy → Verify* |
 
 ## 10. Cosas que NO se deben hacer

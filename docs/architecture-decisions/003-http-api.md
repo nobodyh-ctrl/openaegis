@@ -44,7 +44,7 @@ GET    /controls/{id}     PATCH  /controls/{id}     DELETE /controls/{id}
 - Menos funcionalidades que la REST API: sin WAF directo, sin API keys ni usage plans.
 - La URL es pública y se va a ver en el JavaScript del frontend: **no es un secreto** y no protege nada.
 - Hasta la Etapa 9, **cualquiera con la URL puede leer, crear, editar y borrar** controles. El throttling limita el abuso, pero no lo impide.
-- El permiso de invocación (resource-based policy) quedó **por path y no por método**: el statement de `/controls/{id}` autoriza `GET`, `PATCH` y `DELETE`.
+- Cada ruta necesita su propio statement en la resource-based policy (desde la Etapa 7, D57): más statements que mantener a mano hasta tener CDK.
 
 ## Consideraciones de seguridad
 
@@ -66,5 +66,5 @@ HTTP API: USD 1,00 por millón de requests ([05-api-gateway.md](../05-api-gatewa
 ## Evolución futura
 
 - Etapa 9: autorizador JWT de Cognito en las rutas.
-- Etapa 7 / CDK: restringir los statements también por método (`.../*/GET/controls`).
+- ✅ Etapa 7 (D57): statements restringidos por método (`.../*/GET/controls`).
 - Bloque B: si el backend se migra a contenedores, el punto de entrada podría pasar a ser un ALB. Es parte de la comparación Lambda vs. ECS, no una decisión tomada.

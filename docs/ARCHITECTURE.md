@@ -51,6 +51,7 @@ Todos creados **a mano en la consola**, con tag `Project = cloud-security-checkl
 | Execution role `cloud-sec-checklist-api-role-<sufijo>` | Trust: `lambda.amazonaws.com`. Policy de logs creada por la consola + inline **`controls-table-crud`** (ver §5) | [04-lambda.md](04-lambda.md) |
 | Log group `/aws/lambda/cloud-sec-checklist-api` | Retención 1 semana | [04-lambda.md](04-lambda.md) |
 | HTTP API `cloud-sec-checklist-http-api` | Stage `$default` con auto-deploy · throttling rate 10 / burst 20 · CORS Allow-Origin = solo `https://<distribucion>.cloudfront.net` · Allow-Headers `content-type` · Allow-Methods `GET`, `POST`, `PATCH`, `DELETE` · AllowCredentials `false` · MaxAge `0` (verificado con `get-api` el 2026-10-13). Con Cognito (Etapa 9) habrá que sumar `authorization` a Allow-Headers | [05-api-gateway.md](05-api-gateway.md) |
+| IAM Access Analyzer `openaegis-external-access` | Tipo `ACCOUNT` (*external access*, gratis), zona de confianza = la cuenta, `us-east-1`. Creado el 2026-10-15; 0 findings activos al crearlo. Detectivo: no modifica nada | Pendiente: `07-iam.md` |
 | DynamoDB `cloud-sec-checklist-controls` | PK `id` (String), sin sort key, on-demand, Standard, cifrado *Owned by Amazon DynamoDB*, **deletion protection desactivado** (a propósito, para la migración a CDK), sin PITR, sin GSI | [06-dynamodb.md](06-dynamodb.md) |
 
 ### Rutas configuradas en API Gateway
@@ -63,7 +64,7 @@ Todos creados **a mano en la consola**, con tag `Project = cloud-security-checkl
 | `PATCH /controls/{id}` | Sí: respondió **200** a un `curl` el 2026-10-10, así que la ruta existe y está integrada |
 | `DELETE /controls/{id}` | Sí: respondió 200/404/400 el 2026-10-13 |
 
-**Resource-based policy de la Lambda** (verificada con `aws lambda get-policy` el 2026-10-13): **uno por _path_, no uno por ruta**. Hoy quedan **2**: `/controls` y `/controls/{id}` (el de `/hello` se borró el 2026-10-13, verificado). El `SourceArn` tiene la forma `.../<api-id>/*/*/<path>`: el segundo `*` es el **método**, así que el statement de `/controls` cubre `GET` y `POST`, y el de `/controls/{id}` cubre `GET`, `PATCH` y `DELETE`. Por eso `PATCH` y `DELETE` funcionaron sin agregar statements. Restringir también por método (`.../*/GET/controls`) sería más estricto [PROPUESTA para la Etapa 7 / CDK].
+**Resource-based policy de la Lambda** (verificada con `aws lambda get-policy` el 2026-10-15): **5 statements, uno por ruta, con el método explícito** (D57): `apigw-get-controls`, `apigw-post-controls`, `apigw-get-controls-id`, `apigw-patch-controls-id`, `apigw-delete-controls-id`, con `SourceArn` `.../<api-id>/*/<MÉTODO>/<path>`. Una ruta nueva con otro método (por ejemplo `PUT /controls/{id}`) **no** podría invocar la Lambda sin su propio statement. Antes de la Etapa 7 había 2 statements por path con método comodín (`.../*/*/<path>`), creados por la consola.
 
 ## 3. Backend [CONFIRMADO-REPO]
 
@@ -144,7 +145,7 @@ Comportamientos a tener en cuenta (del código):
 |---|---|---|
 | ① | Navegador → CloudFront | Público (HTTPS) |
 | ② | CloudFront → S3 | Bucket policy (resource-based) con Principal `cloudfront.amazonaws.com` y Condition `AWS:SourceArn` = la distribución (OAC) |
-| ③ | API Gateway → Lambda | Resource-based policy de la Lambda: un statement por path (cualquier método), Principal `apigateway.amazonaws.com`, `lambda:InvokeFunction`, Condition `SourceArn` = `arn:aws:execute-api:us-east-1:<cuenta>:<api-id>/*/*/<path>` (stage / método / path) |
+| ③ | API Gateway → Lambda | Resource-based policy de la Lambda: un statement por ruta (método + path), Principal `apigateway.amazonaws.com`, `lambda:InvokeFunction`, Condition `SourceArn` = `arn:aws:execute-api:us-east-1:<cuenta>:<api-id>/*/<MÉTODO>/<path>` (stage / método / path) |
 | ④ | Lambda → DynamoDB | Execution role (identity-based). Inline policy `controls-table-crud` |
 | ⑤ | Lambda → CloudWatch Logs | Execution role, policy de logs creada por la consola |
 

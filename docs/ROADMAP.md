@@ -24,7 +24,7 @@ Orden original 0–16. **Cambio acordado:** Lambda pasó a ser la Etapa 4 y API 
 | 4 | Lambda + Python | ✅ | [04-lambda.md](04-lambda.md) |
 | 5 | API Gateway (HTTP API) | ✅ | [05-api-gateway.md](05-api-gateway.md) |
 | 6 | DynamoDB + CRUD de controles | ✅ (2026-10-13) | [06-dynamodb.md](06-dynamodb.md) |
-| **7** | **IAM (least privilege real)** | ⏳ **SIGUIENTE** (parcial: se aplica en cada etapa) | — |
+| **7** | **IAM (least privilege real)** | ⏳ **EN CURSO** (auditoría hecha 2026-10-13; D56–D58 aplicados y verificados 2026-10-15; faltan checkpoint y `07-iam.md`) | — |
 | 8 | Integración: frontend real contra la API | [PENDIENTE] | — |
 | 9 | Cognito (autenticación; autorizador JWT del HTTP API) | [PENDIENTE] | — |
 | 10 | CloudWatch: métricas, alarmas, debugging, manejo de errores centralizado | [PENDIENTE] | — |
