@@ -22,3 +22,7 @@ cdk.out/
 # --- Sistema operativo ---
 Thumbs.db
 .DS_Store
+
+# --- Frontend (Node) ---
+node_modules/
+dist/
