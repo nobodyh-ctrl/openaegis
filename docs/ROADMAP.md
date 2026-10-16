@@ -26,7 +26,7 @@ Orden original 0–16. **Cambio acordado:** Lambda pasó a ser la Etapa 4 y API 
 | 6 | DynamoDB + CRUD de controles | ✅ (2026-10-13) | [06-dynamodb.md](06-dynamodb.md) |
 | 7 | IAM: auditoría y least privilege | ✅ (2026-10-15) | [07-iam.md](07-iam.md) |
 | 13a | CI mínimo (adelantado, D60): tests unitarios sin AWS + chequeo de identificadores | ✅ (2026-10-15) | [13a-ci-minimo.md](13a-ci-minimo.md) |
-| **8** | **Integración: frontend real contra la API** | ⏳ **SIGUIENTE** | — |
+| **8** | **Frontend: SPA React + Vite + TS (D65) contra la API** | ⏳ **EN CURSO** | — |
 | 9 | Cognito (autenticación; autorizador JWT del HTTP API) | [PENDIENTE] | — |
 | 10 | CloudWatch: métricas, alarmas, debugging, manejo de errores centralizado | [PENDIENTE] | — |
 | 11 | boto3 + Security Checks read-only → findings → score → dashboard | [PENDIENTE] | — |
@@ -52,7 +52,7 @@ Orden original 0–16. **Cambio acordado:** Lambda pasó a ser la Etapa 4 y API 
 **Etapas 7 a 16**
 
 9. ✅ Etapa 7 — IAM: inventario, 5 hallazgos con severidad, D56–D58 aplicados y verificados, checkpoint 5/5, [07-iam.md](07-iam.md).
-10. Etapa 8 — frontend real (HTML/CSS/JS simple) que consuma la API: listar, crear, editar, eliminar, cambiar estado.
+10. Etapa 8 — frontend SPA (React + Vite + TypeScript + Tailwind + shadcn/ui, [ADR-006](architecture-decisions/006-frontend-spa.md)) bajo `/app`: dashboard por estado y severidad, tabla de controles con filtros, crear/editar/borrar/cambiar estado; proxy de Vite para desarrollo; CloudFront configurado para rutas de SPA; deploy desde CloudShell; job de frontend en el CI.
 11. Etapa 9 — Cognito User Pool + autorizador JWT en el HTTP API.
 12. Etapa 10 — CloudWatch: métricas (*Errors*, *Throttles*, *Duration*), alarmas (verificar costo), manejo de errores centralizado, logs estructurados.
 13. Etapa 11 — checks read-only con boto3 (empezar por S3 Block Public Access, S3 Encryption, CloudTrail habilitado) → tabla de findings → score → dashboard. Diseñar la tabla de findings (requisito: consultar por `control_id` de forma eficiente). Decidir `SecurityAudit` vs. policy propia. Decidir qué regiones evalúa cada check.
@@ -60,7 +60,7 @@ Orden original 0–16. **Cambio acordado:** Lambda pasó a ser la Etapa 4 y API 
 15. Etapa 13 — CI según la opción que elija el usuario.
 16. Etapa 14 — tests (unitarios de `validation.py` sin AWS; `controls.py` con un repositorio falso; moto [PROPUESTA]).
 17. Etapa 15 — README completo, ADRs, lecciones aprendidas.
-18. Etapa 16 — demo (Deploy → Test → Demo/screenshots/video → Destroy → Verify), publicación de LinkedIn **factual**.
+18. Etapa 16 — **landing** en `/` (D66: cuando el producto se pueda instalar con CDK, con comando de instalación y link al repo), demo (Deploy → Test → Demo/screenshots/video → Destroy → Verify) y publicación de LinkedIn **factual**.
 
 ### Alcance de la Etapa 13 (decidido el 2026-10-15)
 

@@ -18,7 +18,7 @@ Convenciones de estado usadas en toda la documentación:
 
 Aplicación web **serverless en AWS** para **gestionar controles de seguridad cloud** (S3 Block Public Access, cifrado de S3, CloudTrail habilitado, MFA, permisos, logging…) y, más adelante, **ejecutar checks automáticos de solo lectura** con boto3 que generen **findings**.
 
-- Proyecto **educativo y de portfolio**. Empezó como **"Cloud Security Checklist"**; el nombre **OpenAegis** se adoptó el 2026-10-12. El **repo de GitHub ya se llama `openaegis`** (verificado el 2026-10-15; la URL vieja `aws-cloud-security-checklist` redirige). Los recursos de AWS (`cloud-sec-checklist-*`), la URL del remoto local y el `frontend/index.html` **siguen usando el nombre viejo**.
+- Proyecto **educativo y de portfolio**. Empezó como **"Cloud Security Checklist"**; el nombre **OpenAegis** se adoptó el 2026-10-12. El **repo de GitHub se llama `openaegis`** y el remoto local ya apunta ahí (2026-10-15). Los recursos de AWS (`cloud-sec-checklist-*`) y el `frontend/index.html` **siguen usando el nombre viejo**.
 - **No** compite con Prowler, ScoutSuite, Wiz ni Prisma Cloud, y **no** debe presentarse como algo que garantiza la seguridad de una cuenta.
 - **Modelo de despliegue (V1):** self-hosted y single-account. Cada usuario despliega su copia en **su** cuenta y la app evalúa **esa** cuenta. Ver [docs/DECISIONS.md](docs/DECISIONS.md) (D48).
 
@@ -55,8 +55,10 @@ openaegis/
 │   ├── 00..07-*.md, 13a-ci-minimo.md  ← un doc por etapa (decisiones D1–D63)
 │   ├── architecture-decisions/  ← ADR-001 a ADR-005 (decisiones grandes)
 │   ├── PROJECT_CONTEXT.md · ARCHITECTURE.md · ROADMAP.md · DECISIONS.md · LEARNING_LOG.md
-├── frontend/
-│   └── index.html            ← solo un <h1> de prueba
+├── frontend/                 ← SPA React + Vite + TS + Tailwind + shadcn/ui (Etapa 8, en curso). Dependencias: D68
+│   ├── .npmrc                ← save-exact, ignore-scripts
+│   ├── vite.config.ts        ← alias @/ y proxy de desarrollo /api (API_PROXY_TARGET en .env.local)
+│   └── src/                  ← main.tsx, App.tsx, components/ui (shadcn), lib/utils.ts, styles/
 ├── tests/                    ← tests unitarios con unittest (sin AWS): validation, responses, check_identifiers
 ├── scripts/
 │   └── check_identifiers.py  ← falla si un archivo versionado tiene un ID real (cuenta, API, CloudFront, access key)
@@ -86,7 +88,7 @@ Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## 5. Alcance de la V1 (Bloque A)
 
-**Dentro:** CRUD de controles · frontend simple (HTML/CSS/JS) para ver, crear, editar, eliminar y cambiar estado · Cognito · CloudWatch · checks **read-only** con boto3 → findings → score → dashboard · CDK en Python · tests · documentación · demo.
+**Dentro:** CRUD de controles · frontend SPA (React + Vite + TypeScript + Tailwind + shadcn/ui, D65/ADR-006) bajo `/app` para ver, crear, editar, eliminar y cambiar estado · landing en `/` recién cuando el producto se pueda instalar (D66) · Cognito · CloudWatch · checks **read-only** con boto3 → findings → score → dashboard · CDK en Python · tests · documentación · demo.
 
 **Fuera de la V1 (no implementar, no "preparar por las dudas"):** Ansible, Terraform, remediación de cualquier tipo, operaciones de escritura sobre recursos evaluados, EventBridge para remediación, workflows de aprobación, infraestructura vulnerable, Docker/ECS/ECR, SQS, FastAPI, OpenTelemetry, IA. **Nunca, salvo un problema real que lo justifique:** EC2, RDS, NAT Gateway, VPC compleja, load balancers, Kubernetes, Kafka, Redis, service mesh, CQRS, event sourcing, microservicios.
 
@@ -96,7 +98,7 @@ Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 | Ahora (V1, implementado) | V1, pendiente | Futuro (Bloque B, a evaluar) |
 |---|---|---|
-| Python 3.14 (arm64) · AWS Lambda · API Gateway HTTP API · DynamoDB · S3 · CloudFront (OAC) · IAM · CloudWatch Logs · boto3 (incluido en el runtime) | Cognito · CloudWatch métricas/alarmas · checks con boto3 · AWS CDK (Python) · GitHub Actions (alcance por decidir) · moto [PROPUESTA] | Docker · Terraform · ECR · ECS/Fargate · FastAPI · OIDC · OpenTelemetry/X-Ray · SQS · Ansible · Trivy/Bandit/Semgrep/Checkov/ansible-lint · IA para explicar findings · k6 |
+| Python 3.14 (arm64) · AWS Lambda · API Gateway HTTP API · DynamoDB · S3 · CloudFront (OAC) · IAM · CloudWatch Logs · boto3 (incluido en el runtime) | Frontend SPA: React + Vite + TypeScript + Tailwind + shadcn/ui (Etapa 8) · Cognito · CloudWatch métricas/alarmas · checks con boto3 · AWS CDK (Python) · GitHub Actions (alcance por decidir) · moto [PROPUESTA] | Docker · Terraform · ECR · ECS/Fargate · FastAPI · OIDC · OpenTelemetry/X-Ray · SQS · Ansible · Trivy/Bandit/Semgrep/Checkov/ansible-lint · IA para explicar findings · k6 |
 
 ## 7. Cómo desplegar y probar (solo lo verificado)
 
@@ -180,13 +182,13 @@ El usuario pidió un **tutor técnico exigente, no un generador de código**. Re
 ## 10. Cómo documentar
 
 - **Un doc por etapa** en `docs/NN-tema.md`, con la estructura de los existentes: objetivo, conceptos, decisiones (`D#`), configuración, verificación, debugging, costos, relación con Cloud Security, cómo revertir, cosas que NO hacer. Con marcadores en lugar de identificadores reales.
-- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D64**), y al doc de su etapa.
-- **ADRs** (`docs/architecture-decisions/NNN-tema.md`, D55): solo para decisiones **grandes**; `DECISIONS.md` es el índice de todas. Formato: Contexto, Decisión, Por qué, Alternativas consideradas, Ventajas, Desventajas, Consideraciones de seguridad, Consideraciones de costo, Consecuencias, Evolución futura (más estado, fecha y decisiones relacionadas). Existen ADR-001 a ADR-005; el siguiente es **006**. Al crear uno, agregarlo a la tabla de `DECISIONS.md`.
+- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D69**), y al doc de su etapa.
+- **ADRs** (`docs/architecture-decisions/NNN-tema.md`, D55): solo para decisiones **grandes**; `DECISIONS.md` es el índice de todas. Formato: Contexto, Decisión, Por qué, Alternativas consideradas, Ventajas, Desventajas, Consideraciones de seguridad, Consideraciones de costo, Consecuencias, Evolución futura (más estado, fecha y decisiones relacionadas). Existen ADR-001 a ADR-006; el siguiente es **007**. Al crear uno, agregarlo a la tabla de `DECISIONS.md`.
 - **README:** contar la evolución, con ventajas **y desventajas**; **solo lo implementado**.
 - Actualizar ROADMAP y ARCHITECTURE cuando algo cambie de estado.
 
 ## 11. Memoria y forma de trabajo (tenet)
 
-- **Memoria persistente: Engram** (decidido el 2026-10-14). Proyecto en Engram: `aws-cloud-security-checklist` (se deriva del remoto; se revisa si se renombra el repo). Al empezar una sesión: `mem_current_project` + `mem_search` del tema. Se guardan **solo** hechos que no están en el repo (preferencias de enseñanza, restricciones de la cuenta, resumen de cada sesión). Las decisiones técnicas viven en `docs/DECISIONS.md`, que es la fuente de verdad.
+- **Memoria persistente: Engram** (decidido el 2026-10-14). Proyecto en Engram: **`openaegis`**, fijado en `.engram/config.json` (2026-10-15). Las memorias anteriores siguen bajo `aws-cloud-security-checklist` (no se borran ni se unifican sin aprobación). Al empezar una sesión: `mem_current_project` + `mem_search` del tema. Se guardan **solo** hechos que no están en el repo (preferencias de enseñanza, restricciones de la cuenta, resumen de cada sesión). Las decisiones técnicas viven en `docs/DECISIONS.md`, que es la fuente de verdad.
 - **OpenSpec: no se usa por ahora**; se reevalúa en la revisión V1 → V2. Cada cambio declara igual su alcance y sus criterios de aceptación (el "Esperado" de cada paso).
 - Excepciones a los valores por defecto de tenet, con motivo: docs en **español** (convención del proyecto) e IaC con **AWS CDK** en la V1 (la comparación con Terraform es parte del Bloque B).

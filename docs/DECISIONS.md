@@ -1,7 +1,7 @@
 # Decisiones técnicas
 
 > Índice de **todas** las decisiones del proyecto. D1–D31 están desarrolladas en el doc de cada etapa (acá solo el resumen y el enlace). D32–D54 (Etapa 6) están acá con sus alternativas completas y resumidas en [06-dynamodb.md](06-dynamodb.md).
-> **Próximo número libre: D64.** Cada decisión nueva se agrega acá y en el doc de su etapa.
+> **Próximo número libre: D69.** Cada decisión nueva se agrega acá y en el doc de su etapa.
 > Las decisiones grandes tienen además un **ADR** completo (D55):
 >
 > | ADR | Tema | Decisiones |
@@ -10,7 +10,8 @@
 > | [ADR-002](architecture-decisions/002-s3-cloudfront.md) | Frontend en S3 privado + CloudFront con OAC | D9–D17 |
 > | [ADR-003](architecture-decisions/003-http-api.md) | API Gateway HTTP API | D22, D26–D31, D41, D42 |
 > | [ADR-004](architecture-decisions/004-dynamodb.md) | DynamoDB on-demand | D32–D45, D50, D53, D54 |
-> | [ADR-005](architecture-decisions/005-deployment-model.md) | Modelo de despliegue self-hosted single-account | D48, D2 |
+> | [ADR-005](architecture-decisions/005-deployment-model.md) | Modelo de despliegue self-hosted single-account | D48, D2, D64 |
+> | [ADR-006](architecture-decisions/006-frontend-spa.md) | Frontend SPA (React + Vite + TS) en S3 + CloudFront | D64–D66 |
 
 ## D1–D31 (documentadas por etapa)
 
@@ -86,6 +87,11 @@ Todas tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSACIÓN]
 | D61 | CI · actions de terceros | Fijadas por **commit SHA**, con la versión en un comentario (`checkout` v7.0.1, `setup-python` v7.0.0, verificadas con `gh`). 2026-10-15 | Una etiqueta se puede mover a otro código; un SHA es inmutable (*supply chain*) | Etiquetas `@v7` |
 | D62 | CI · fugas de identificadores | Script **propio** `scripts/check_identifiers.py` (sin dependencias): cuenta, API, CloudFront, access keys; revisa también el XML de los `.drawio.png`; **enmascara** lo que encuentra. 2026-10-15 | Sin *supply chain* extra; distingue los marcadores del proyecto; los logs de un repo público son públicos | gitleaks, trufflehog (contra: dependencia externa; a favor: más patrones) |
 | D63 | CI · permisos del pipeline | `permissions: contents: read`, `persist-credentials: false`, `timeout-minutes: 5`, Python 3.14 (igual que la Lambda). 2026-10-15 | Least privilege aplicado al CI; probar con la misma versión que producción | Valores por defecto |
+| D64 | Modelo de cuentas (reafirma D48) | V1 **self-hosted**: "conectar la cuenta" es desplegar en ella; **no hay flujo de conexión** en el frontend. La UI muestra la cuenta y la región evaluadas como concepto visible (el ID de cuenta, recién con Cognito). El modelo **SaaS** (rol cross-account vía CloudFormation + ExternalId) se evalúa en la revisión V1 → V2. 2026-10-15 | El SaaS implica guardar los findings de todos los clientes, aislamiento entre tenants, auth multi-organización y que el operador pague el cómputo | Pasar a SaaS ahora |
+| D65 | Stack del frontend | **React + Vite + TypeScript + Tailwind CSS + shadcn/ui**, compilado a estáticos en el mismo S3 + CloudFront; app bajo `/app`. **Cambia el alcance** del prompt original ("frontend deliberadamente simple"). Ver [ADR-006](architecture-decisions/006-frontend-spa.md). 2026-10-15 | Producto con app + landing futura; UI de portfolio; el usuario conoce TS/React; sin servicios ni costos nuevos de AWS | HTML/CSS/JS sin framework; Next.js static export; Next.js con SSR; Astro |
+| D66 | Landing | Se construye **cuando el producto se pueda instalar y usar**: buena UI, comando de instalación, link al repo. Hasta entonces, `/` redirige a `/app`. 2026-10-15 | Una landing de algo que todavía no se puede instalar promete lo que no existe (regla: documentar solo lo implementado) | Armarla ya, como ruta de la misma app |
+| D67 | Rutas de la SPA en CloudFront | **Error pages**: ante 403 y 404 del origen, devolver `/index.html` con 200; la página "No encontrado" la resuelve React. 2026-10-15 | Sin costo ni código; solución estándar para SPAs en S3 privado (S3 responde 403 a claves inexistentes) | CloudFront Function que reescribe la URL (código y costo propios); rutas con `#` (URLs poco profesionales) |
+| D68 | Política de dependencias npm (*supply chain*) | Versiones **exactas** (`save-exact`), solo versiones con **≥ 14 días** de publicadas, `ignore-scripts=true` en `frontend/.npmrc`, `package-lock.json` versionado; las herramientas de un solo uso (CLI de shadcn) se corren con `npx <paquete>@<versión>` y **no** quedan como dependencia (su CSS se copió a `src/styles/` con nota de licencia MIT). 2026-10-15 | Una versión recién publicada puede ser maliciosa o estar rota; los scripts de instalación ejecutan código ajeno; el CLI de shadcn traía 7 vulnerabilidades *high* (vía `braces`) que no aportaban nada al build | Últimas versiones con `^`; dejar `shadcn` como devDependency |
 
 ## Propuestas (no decididas)
 
@@ -100,7 +106,7 @@ Todas tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSACIÓN]
 
 ## Preguntas abiertas para el usuario
 
-1. **Nombre:** el repo de GitHub **ya se llama `openaegis`** (verificado el 2026-10-15). Quedan: ¿actualizar la URL del remoto local? ¿Renombrar los recursos de AWS (`cloud-sec-checklist-*`) cuando se recreen con CDK? (Engram toma el nombre del proyecto del remoto.)
+1. **Nombre:** el repo de GitHub **ya se llama `openaegis`** (verificado el 2026-10-15). Remoto local actualizado y Engram fijado en `openaegis` (2026-10-15). Queda: ¿renombrar los recursos de AWS (`cloud-sec-checklist-*`) cuando se recreen con CDK? (Engram toma el nombre del proyecto del remoto.)
 2. **Etapa 11:** ¿`SecurityAudit` o policy propia?
 3. **Enums:** ¿aceptar `"high"` normalizando con `.upper()`, o mantener el 400?
 4. **Opcionales vacíos:** hoy `"description": ""` se guarda como string vacío. ¿Guardarlo así, omitir el atributo o, en `PATCH`, usarlo para **borrar** el campo (`REMOVE`)?
