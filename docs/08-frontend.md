@@ -225,12 +225,41 @@ Archivos escritos a mano, sin `npm create vite`, para controlar las versiones y 
 | `npm run dev` | Sirve la app en `localhost`; inyecta `/@vite/client` y `/@react-refresh` (solo en desarrollo) |
 | `scripts/check_identifiers.py` | OK sobre los archivos nuevos, incluido `package-lock.json` |
 
+### 4.2 Paso 8.2 — Cliente de la API y proxy (2026-10-16)
+
+| Archivo | Para qué |
+|---|---|
+| `frontend/src/lib/api.ts` | **Único** lugar del frontend que hace `fetch()`. Tipos del contrato (`Control`, `ControlInput`, `ControlPatch`, `Severity`, `Status`), clase `ApiError` con el status HTTP, y las 5 operaciones del CRUD |
+| `frontend/src/vite-env.d.ts` | Tipa `import.meta.env.VITE_API_URL` |
+| `frontend/.env.local` (no versionado) | `API_PROXY_TARGET` con la URL real de la API, creado por el usuario |
+
+Decisiones de diseño del cliente:
+
+| Detalle | Por qué |
+|---|---|
+| `BASE_URL = VITE_API_URL ?? "/api"` | Sin `VITE_API_URL` (desarrollo), las rutas son relativas y pasan por el proxy; en producción, la URL real |
+| `Content-Type: application/json` **solo** si hay body | Un `GET` sin headers extra es una *simple request*: el navegador no hace preflight |
+| Mensaje de error: `error` (backend) o `message` (API Gateway) | Los errores del backend son `{"error": ...}`; los de API Gateway (404 de ruta, 429, 500) son `{"message": ...}` |
+| `ApiError(0, ...)` si `fetch()` lanza | `fetch()` solo lanza cuando **no hubo respuesta**: sin red, DNS o **un bloqueo de CORS del navegador**. Un 4xx/5xx **no** lanza: hay que mirar `response.ok` |
+| `encodeURIComponent(id)` | Un id con caracteres raros no puede alterar la ruta |
+
+**Verificación:**
+
+| Prueba | Resultado |
+|---|---|
+| Preflight simulado desde `Origin: http://localhost:5173` contra la API real | `204` **sin** `access-control-allow-origin`: un navegador bloquearía |
+| `GET` desde un programa (Node) con el mismo `Origin` | `200`, `count: 3`: la API responde igual. **CORS no es un firewall** |
+| `GET /api/controls` vía el proxy de Vite | `200`, `count: 3`, con `apigw-requestid` (respondió API Gateway) |
+| `GET /api/controls/abc` vía el proxy | `400` con el mensaje del backend |
+| `GET /app/controles` en el servidor de desarrollo | Devuelve `index.html`: el servidor de desarrollo de Vite ya hace el *fallback* de SPA. **En producción no**: S3 + CloudFront necesitan las error pages (D67) |
+| `npm run typecheck` | OK |
+
 ## 5. Plan de la etapa
 
 | Paso | Qué | Toca AWS | Estado |
 |---|---|---|---|
 | 8.1 | Proyecto Vite + React + TS, Tailwind y shadcn/ui | No | ✅ 2026-10-15 |
-| 8.2 | Cliente de la API tipado + proxy de desarrollo | No | Pendiente |
+| 8.2 | Cliente de la API tipado + proxy de desarrollo | No | ✅ 2026-10-16 |
 | 8.3 | Layout, menú, modo claro/oscuro; `/` → `/app` | No | Pendiente |
 | 8.4 | Página Controles (tabla, filtros, CRUD, estados, notificaciones) | No | Pendiente |
 | 8.5 | Dashboard | No | Pendiente |
