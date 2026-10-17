@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import { Plus, RotateCw, Search } from "lucide-react";
 import { ControlFormSheet } from "@/components/controls/ControlFormSheet";
 import { ControlsTable } from "@/components/controls/ControlsTable";
@@ -16,9 +17,12 @@ const ALL = "ALL"; // Radix Select no acepta "" como valor
 
 export function ControlsPage() {
   const { data, isPending, error, refetch, isFetching } = useControls();
+  // Filtros iniciales desde la URL (los links del Dashboard: ?estado=FAIL, ?severidad=HIGH)
+  const [params] = useSearchParams();
+  const fromUrl = (key: string, allowed: readonly string[]) => (allowed.includes(params.get(key) ?? "") ? params.get(key)! : ALL);
   const [search, setSearch] = useState("");
-  const [severity, setSeverity] = useState(ALL);
-  const [status, setStatus] = useState(ALL);
+  const [severity, setSeverity] = useState(() => fromUrl("severidad", SEVERITIES));
+  const [status, setStatus] = useState(() => fromUrl("estado", STATUSES));
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Control | undefined>();
   const [deleting, setDeleting] = useState<Control | null>(null);
