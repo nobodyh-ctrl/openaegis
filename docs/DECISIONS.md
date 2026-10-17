@@ -1,7 +1,7 @@
 # Decisiones técnicas
 
 > Índice de **todas** las decisiones del proyecto. D1–D31 están desarrolladas en el doc de cada etapa (acá solo el resumen y el enlace). D32–D54 (Etapa 6) están acá con sus alternativas completas y resumidas en [06-dynamodb.md](06-dynamodb.md).
-> **Próximo número libre: D74.** Cada decisión nueva se agrega acá y en el doc de su etapa.
+> **Próximo número libre: D75.** Cada decisión nueva se agrega acá y en el doc de su etapa.
 > Las decisiones grandes tienen además un **ADR** completo (D55):
 >
 > | ADR | Tema | Decisiones |
@@ -97,6 +97,7 @@ Todas tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSACIÓN]
 | D71 | Identidad visual | **Modo oscuro por defecto** (con interruptor), color de marca **teal**, y colores semánticos fijos para severidad (CRITICAL rojo, HIGH naranja, MEDIUM ámbar, LOW gris azulado) y estado (PASS verde, REVIEW ámbar, FAIL rojo), **siempre con texto o ícono**, nunca solo color. 2026-10-16 | Estética habitual de herramientas de seguridad e infraestructura; accesibilidad para quien no distingue colores | Gris neutro por defecto de shadcn/ui |
 | D72 | Tabla de controles | **Table de shadcn** (HTML semántico) con filtros, búsqueda y orden **en el cliente**. 2026-10-17 | Son decenas de controles; `GET /controls` ya trae todos | TanStack Table (resuelve problemas de tablas grandes que no tenemos) |
 | D73 | Formulario de control | **Estado propio + validación propia** espejo de `FIELD_RULES` (obligatorios, largos, enums); los errores del backend (400, 409) se muestran en el campo. La validación de verdad es la del backend: la del frontend es para avisar antes. 2026-10-17 | Un formulario de 8 campos no justifica dos dependencias | react-hook-form + zod |
+| D74 | Flujo de trabajo con ramas | `main` **protegida con un ruleset** (2026-10-17): sin borrado, sin *force push*, todo cambio por **PR** (0 aprobaciones: un solo desarrollador), rama al día con `main` y check requerido **`checks`** (el `name:` del job del CI), sin bypass. Ramas `tipo/descripcion` (`feat/`, `fix/`, `ci/`, `docs/`). El CI corre en `pull_request` y en `push` a `main`. 2026-10-17 | Nada llega a `main` sin pasar el CI; historia de `main` no reescribible | Push directo a `main` (como hasta ahora) |
 
 ## Propuestas (no decididas)
 

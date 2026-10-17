@@ -3,7 +3,10 @@
 name: CI
 
 on:
+  # Con main protegida (D74), los cambios llegan por PR: el CI corre en cada PR y en cada push a main.
+  # Sin el filtro, un push a una rama con PR abierto correría el CI dos veces (push + pull_request).
   push:
+    branches: [main]
   pull_request:
 
 # Least privilege para el GITHUB_TOKEN: solo leer el código del repo
@@ -12,7 +15,8 @@ permissions:
 
 jobs:
   checks:
-    name: Tests y chequeo de identificadores
+    # Este nombre es el check requerido por el ruleset de main (D74): si se cambia acá, hay que cambiarlo allá.
+    name: checks
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
