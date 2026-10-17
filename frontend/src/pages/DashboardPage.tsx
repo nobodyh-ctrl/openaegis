@@ -35,6 +35,7 @@ const SEVERITY_BAR: Record<Severity, string> = {
   CRITICAL: "bg-red-500", HIGH: "bg-orange-500", MEDIUM: "bg-amber-500", LOW: "bg-slate-500",
 };
 
+/** Muestra una métrica con etiqueta e ícono como enlace a la ruta indicada. */
 function StatCard({ label, value, icon: Icon, tone, to }: { label: string; value: number | string; icon: LucideIcon; tone: string; to: string }) {
   return (
     <Link to={to} className="group rounded-xl border bg-card p-4 transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -47,6 +48,7 @@ function StatCard({ label, value, icon: Icon, tone, to }: { label: string; value
   );
 }
 
+/** Resume el estado declarado de los controles y enlaza a las listas filtradas por estado o severidad. */
 export function DashboardPage() {
   const { data, isPending, error, refetch, isFetching } = useControls();
   const stats = useMemo(() => computeStats(data?.items ?? []), [data]);

@@ -15,10 +15,12 @@ import { useControls } from "@/lib/use-controls";
 
 const ALL = "ALL"; // Radix Select no acepta "" como valor
 
+/** Lista y administra controles con búsqueda y filtros inicializados desde valores válidos de la URL. */
 export function ControlsPage() {
   const { data, isPending, error, refetch, isFetching } = useControls();
   // Filtros iniciales desde la URL (los links del Dashboard: ?estado=FAIL, ?severidad=HIGH)
   const [params] = useSearchParams();
+  /** Devuelve el valor del parámetro si está permitido; si falta o es inválido, devuelve ALL. */
   const fromUrl = (key: string, allowed: readonly string[]) => (allowed.includes(params.get(key) ?? "") ? params.get(key)! : ALL);
   const [search, setSearch] = useState("");
   const [severity, setSeverity] = useState(() => fromUrl("severidad", SEVERITIES));
