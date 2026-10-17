@@ -170,7 +170,7 @@ Cubren `validation.py`, `responses.py` y el propio chequeo. `controls.py` todav�
 4. **AWS:** no desplegar, modificar ni destruir recursos, ni generar gastos, sin autorización explícita. **Advertir el costo antes** de crear cualquier recurso y **verificar precios y Free Tier en la documentación oficial**. Nunca asumir que algo es gratis.
 5. ⚠️ **Free plan:** crear una **AWS Organization**, activar **IAM Identity Center** o **Control Tower**, o hacer clic en *upgrade plan* **pasa la cuenta al Paid plan y hace vencer los créditos**. Nunca sugerirlo sin advertirlo.
 6. **Secretos e identificadores:** nunca escribir en el repo el ID de cuenta, el ID de la API, el dominio de CloudFront, el sufijo del bucket, el nombre del IAM user, IDs de distribución ni emails. Usar `<cuenta>`, `<api-id>`, `<distribucion>`, `<sufijo>`, `<admin-user>`, `<distribution-id>`. **Recordarle al usuario** que tape esos datos cuando pega salidas.
-7. **Commits, pushes y cambios destructivos solo a pedido explícito.** Mensajes en español, estilo `tipo(ámbito): descripción` (ver `git log`), con la atribución que indique el entorno.
+7. **`main` está protegida (D74): todo cambio va en una rama `tipo/descripcion` y entra por PR con el check `checks` en verde.** Antes de escribir, `git switch -c <rama>` desde `main` actualizada. **Commits, pushes y cambios destructivos solo a pedido explícito.** Mensajes en español, estilo `tipo(ámbito): descripción` (ver `git log`), con la atribución que indique el entorno.
 8. **Least privilege** en cada permiso nuevo: acciones concretas sobre ARNs concretos. Los checks de la V1 son **read-only**.
 9. **Código:** Python simple, sin frameworks ni dependencias salvo que resuelvan un problema real. `validation.py` no importa AWS ni HTTP; `repository.py` es el único que importa boto3. Atrapar **solo** las excepciones que se saben manejar (nada de `except Exception`).
 
@@ -193,7 +193,7 @@ El usuario pidió un **tutor técnico exigente, no un generador de código**. Re
 ## 10. Cómo documentar
 
 - **Un doc por etapa** en `docs/NN-tema.md`, con la estructura de los existentes: objetivo, conceptos, decisiones (`D#`), configuración, verificación, debugging, costos, relación con Cloud Security, cómo revertir, cosas que NO hacer. Con marcadores en lugar de identificadores reales.
-- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D74**), y al doc de su etapa.
+- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D75**), y al doc de su etapa.
 - **ADRs** (`docs/architecture-decisions/NNN-tema.md`, D55): solo para decisiones **grandes**; `DECISIONS.md` es el índice de todas. Formato: Contexto, Decisión, Por qué, Alternativas consideradas, Ventajas, Desventajas, Consideraciones de seguridad, Consideraciones de costo, Consecuencias, Evolución futura (más estado, fecha y decisiones relacionadas). Existen ADR-001 a ADR-006; el siguiente es **007**. Al crear uno, agregarlo a la tabla de `DECISIONS.md`.
 - **README:** contar la evolución, con ventajas **y desventajas**; **solo lo implementado**.
 - Actualizar ROADMAP y ARCHITECTURE cuando algo cambie de estado.
