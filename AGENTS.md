@@ -50,14 +50,16 @@ openaegis/
 │   ├── controls.py           ← lógica de cada ruta de /controls
 │   ├── validation.py         ← reglas de un control válido (sin AWS ni HTTP)
 │   ├── repository.py         ← ÚNICO módulo que usa boto3 / DynamoDB
-│   └── responses.py          ← formato de entrada/salida de API Gateway (payload 2.0)
+│   ├── responses.py          ← formato de entrada/salida de API Gateway (payload 2.0)
+│   └── openapi.yaml          ← CONTRATO de la API (OpenAPI 3.1, D69): actualizarlo si cambia el backend
 ├── docs/
 │   ├── 00..07-*.md, 13a-ci-minimo.md  ← un doc por etapa (decisiones D1–D63)
 │   ├── architecture-decisions/  ← ADR-001 a ADR-005 (decisiones grandes)
 │   ├── PROJECT_CONTEXT.md · ARCHITECTURE.md · ROADMAP.md · DECISIONS.md · LEARNING_LOG.md
 ├── frontend/                 ← SPA React + Vite + TS + Tailwind + shadcn/ui (Etapa 8, en curso). Dependencias: D68
 │   ├── .npmrc                ← save-exact, ignore-scripts
-│   ├── vite.config.ts        ← alias @/ y proxy de desarrollo /api (API_PROXY_TARGET en .env.local)
+│   ├── vite.config.ts        ← alias @/, proxy de desarrollo /api/ (API_PROXY_TARGET en .env.local) y /openapi.yaml
+│   ├── swagger.html          ← Swagger UI SOLO en desarrollo (http://localhost:5173/swagger.html)
 │   └── src/                  ← main.tsx, App.tsx, components/ui (shadcn), lib/utils.ts, styles/
 ├── tests/                    ← tests unitarios con unittest (sin AWS): validation, responses, check_identifiers
 ├── scripts/
@@ -182,7 +184,7 @@ El usuario pidió un **tutor técnico exigente, no un generador de código**. Re
 ## 10. Cómo documentar
 
 - **Un doc por etapa** en `docs/NN-tema.md`, con la estructura de los existentes: objetivo, conceptos, decisiones (`D#`), configuración, verificación, debugging, costos, relación con Cloud Security, cómo revertir, cosas que NO hacer. Con marcadores en lugar de identificadores reales.
-- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D69**), y al doc de su etapa.
+- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D72**), y al doc de su etapa.
 - **ADRs** (`docs/architecture-decisions/NNN-tema.md`, D55): solo para decisiones **grandes**; `DECISIONS.md` es el índice de todas. Formato: Contexto, Decisión, Por qué, Alternativas consideradas, Ventajas, Desventajas, Consideraciones de seguridad, Consideraciones de costo, Consecuencias, Evolución futura (más estado, fecha y decisiones relacionadas). Existen ADR-001 a ADR-006; el siguiente es **007**. Al crear uno, agregarlo a la tabla de `DECISIONS.md`.
 - **README:** contar la evolución, con ventajas **y desventajas**; **solo lo implementado**.
 - Actualizar ROADMAP y ARCHITECTURE cuando algo cambie de estado.

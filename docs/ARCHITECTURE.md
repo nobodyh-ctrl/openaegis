@@ -105,6 +105,9 @@ API Gateway (payload 2.0, body como string)
 
 ### API
 
+Contrato completo: [backend/openapi.yaml](../backend/openapi.yaml) (OpenAPI 3.1, D69). Con `npm run dev` en `frontend/`, se puede ver y probar en `http://localhost:5173/swagger.html`.
+
+
 | Método y ruta | Operación DynamoDB | Respuestas |
 |---|---|---|
 | `GET /controls` | `Scan` paginado | 200 `{"items": [...], "count": N}` |

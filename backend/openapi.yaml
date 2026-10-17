@@ -1,0 +1,306 @@
+openapi: 3.1.0
+info:
+  title: OpenAegis API
+  version: 0.1.0
+  summary: CRUD de controles de seguridad cloud.
+  description: |
+    Contrato de la API de OpenAegis (V1). Es la **fuente del contrato** (D69): describe lo que
+    hacen `backend/controls.py` y `backend/validation.py`. Si cambia el backend, se actualiza este archivo.
+
+    - Sin autenticación todavía (llega con Cognito en la Etapa 9). La API tiene throttling (rate 10 / burst 20).
+    - Los errores del backend tienen la forma `{"error": "..."}`. Los que genera API Gateway
+      (ruta inexistente, throttling, falla al invocar la Lambda) tienen la forma `{"message": "..."}`.
+  license:
+    name: MIT
+    identifier: MIT
+
+servers:
+  - url: /api
+    description: Desarrollo (npm run dev). El proxy de Vite reenvía a la API real.
+  - url: https://{apiId}.execute-api.us-east-1.amazonaws.com
+    description: >-
+      Producción (tu despliegue). Solo como referencia: desde este Swagger (localhost) el navegador
+      bloquea la request por CORS, porque la API solo autoriza el dominio de CloudFront. Para probar, usá /api.
+    variables:
+      apiId:
+        default: <api-id>
+
+# Sin autenticación, declarado explícitamente (hallazgo H4 de la Etapa 7). Con Cognito (Etapa 9)
+# se agrega un securityScheme JWT y se reemplaza esta línea.
+security: []
+
+tags:
+  - name: controls
+    description: Controles de seguridad (reglas del checklist).
+
+paths:
+  /controls:
+    get:
+      tags: [controls]
+      operationId: listControls
+      summary: Listar todos los controles
+      description: DynamoDB `Scan` paginado. Sin filtros ni orden garantizado.
+      responses:
+        "200":
+          description: Lista de controles.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, count]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Control" }
+                  count:
+                    type: integer
+                    minimum: 0
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+    post:
+      tags: [controls]
+      operationId: createControl
+      summary: Crear un control
+      description: |
+        El servidor genera `id` (UUID v4), `created_at` y `updated_at`. Los campos que no están
+        en el schema se **ignoran** (allowlist contra mass assignment). Los textos se guardan sin
+        espacios al principio ni al final. El `code` tiene que ser único.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ControlInput" }
+            example:
+              code: S3-001
+              title: S3 Block Public Access
+              service: S3
+              category: Data protection
+              severity: HIGH
+              description: Block Public Access impide que ACLs o bucket policies hagan público un bucket.
+              remediation: Activar las 4 configuraciones de Block Public Access en el bucket.
+      responses:
+        "201":
+          description: Control creado.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ItemResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /controls/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ControlId"
+
+    get:
+      tags: [controls]
+      operationId: getControl
+      summary: Obtener un control
+      responses:
+        "200":
+          description: El control.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ItemResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+    patch:
+      tags: [controls]
+      operationId: updateControl
+      summary: Editar campos o cambiar el estado
+      description: |
+        Actualización parcial: solo se modifican los campos enviados, con las mismas reglas que en
+        la creación (ninguno es obligatorio, pero si viene, no puede estar vacío). `updated_at` lo pone
+        el servidor; `id` y `created_at` no se pueden cambiar. Si no queda ningún campo válido → 400.
+        Nunca crea un control nuevo: si el id no existe → 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ControlPatch" }
+            example:
+              status: FAIL
+      responses:
+        "200":
+          description: El control actualizado (completo).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ItemResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+    delete:
+      tags: [controls]
+      operationId: deleteControl
+      summary: Borrar un control
+      description: |
+        Borrado real (D53). Devuelve el control tal como era antes de borrarlo. Si el id no existe → 404
+        (no hay éxito silencioso, D54). Cuando existan findings (Etapa 11), borrar un control con findings
+        va a responder 409.
+      responses:
+        "200":
+          description: El control borrado.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ItemResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+components:
+  parameters:
+    ControlId:
+      name: id
+      in: path
+      required: true
+      description: UUID del control. Se acepta en mayúsculas o sin guiones; el servidor lo normaliza.
+      schema:
+        type: string
+        format: uuid
+      example: 3f2b9c1e-7a4d-4e1a-9c2b-1f2e3d4c5b6a
+
+  schemas:
+    Severity:
+      type: string
+      enum: [LOW, MEDIUM, HIGH, CRITICAL]
+      description: En mayúsculas exactas ("high" → 400).
+
+    Status:
+      type: string
+      enum: [PASS, REVIEW, FAIL]
+
+    Control:
+      type: object
+      required: [id, code, title, service, category, severity, status, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        code:
+          type: string
+          maxLength: 20
+          examples: [S3-001]
+        title:
+          type: string
+          maxLength: 200
+        service:
+          type: string
+          maxLength: 50
+        category:
+          type: string
+          maxLength: 100
+        severity: { $ref: "#/components/schemas/Severity" }
+        status: { $ref: "#/components/schemas/Status" }
+        description:
+          type: string
+          maxLength: 2000
+          description: Opcional. Ausente si no se envió; puede ser "" si se envió vacío.
+        remediation:
+          type: string
+          maxLength: 2000
+          description: Opcional. Ausente si no se envió; puede ser "" si se envió vacío.
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          examples: ["2026-10-08T21:00:00Z"]
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    ControlInput:
+      type: object
+      description: |
+        Todos los campos son texto (otro tipo → 400). Los obligatorios no pueden estar vacíos ni
+        ser solo espacios. Los campos que no figuran acá se ignoran.
+      required: [code, title, service, category, severity]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 20, description: "Único entre todos los controles." }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        service: { type: string, minLength: 1, maxLength: 50 }
+        category: { type: string, minLength: 1, maxLength: 100 }
+        severity: { $ref: "#/components/schemas/Severity" }
+        status:
+          allOf: [{ $ref: "#/components/schemas/Status" }]
+          default: REVIEW
+        description: { type: string, maxLength: 2000 }
+        remediation: { type: string, maxLength: 2000 }
+
+    ControlPatch:
+      type: object
+      description: Cualquier subconjunto de los campos de ControlInput. Tiene que quedar al menos uno válido.
+      minProperties: 1
+      properties:
+        code: { type: string, minLength: 1, maxLength: 20 }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        service: { type: string, minLength: 1, maxLength: 50 }
+        category: { type: string, minLength: 1, maxLength: 100 }
+        severity: { $ref: "#/components/schemas/Severity" }
+        status: { $ref: "#/components/schemas/Status" }
+        description: { type: string, maxLength: 2000 }
+        remediation: { type: string, maxLength: 2000 }
+
+    ItemResponse:
+      type: object
+      required: [item]
+      properties:
+        item: { $ref: "#/components/schemas/Control" }
+
+    Error:
+      type: object
+      description: Error generado por el backend (la Lambda).
+      required: [error]
+      properties:
+        error: { type: string }
+
+    GatewayError:
+      type: object
+      description: Error generado por API Gateway, sin invocar la Lambda (o sin poder invocarla).
+      required: [message]
+      properties:
+        message: { type: string }
+
+  responses:
+    BadRequest:
+      description: Body vacío, JSON inválido, JSON que no es un objeto, id que no es un UUID o un campo inválido.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: "El campo 'title' no puede estar vacío." }
+    NotFound:
+      description: El control no existe.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: Control no encontrado. }
+    Conflict:
+      description: Ya existe otro control con ese `code`.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { error: "Ya existe un control con el código 'S3-001'." }
+    TooManyRequests:
+      description: Throttling de API Gateway (rate 10 / burst 20). Lo responde API Gateway, sin invocar la Lambda.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/GatewayError" }
+          example: { message: Too Many Requests }
+    InternalError:
+      description: |
+        Error no previsto. Si no aparece ningún log en la Lambda, lo generó API Gateway (por ejemplo, porque no pudo
+        invocarla); si hay un traceback en CloudWatch, falló la Lambda.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/GatewayError" }
+          example: { message: Internal Server Error }

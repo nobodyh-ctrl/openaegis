@@ -175,6 +175,9 @@ Con cada deploy, solo hay que invalidar `/index.html`. Resuelve por diseño el p
 | D66 | Landing | Cuando el producto se pueda instalar (Etapa 16); hasta entonces `/` → `/app` |
 | D67 | Rutas de la SPA | Error pages de CloudFront (403/404 → `/index.html`, 200) |
 | D68 | Dependencias npm | Versiones exactas, ≥ 14 días de publicadas, `ignore-scripts`, lockfile; CLIs con `npx`, no como dependencia |
+| D69 | Contrato de la API | `backend/openapi.yaml` (OpenAPI 3.1) + Swagger UI solo en desarrollo |
+| D70 | Datos remotos | TanStack Query |
+| D71 | Identidad visual | Oscuro por defecto, teal, colores semánticos con texto o ícono |
 
 ## 4. Configuración realizada
 
@@ -254,13 +257,49 @@ Decisiones de diseño del cliente:
 | `GET /app/controles` en el servidor de desarrollo | Devuelve `index.html`: el servidor de desarrollo de Vite ya hace el *fallback* de SPA. **En producción no**: S3 + CloudFront necesitan las error pages (D67) |
 | `npm run typecheck` | OK |
 
+### 4.3 Paso 8.2b — Contrato OpenAPI y Swagger UI de desarrollo (2026-10-16)
+
+**Qué son:** **OpenAPI** es un archivo que describe la API (rutas, bodies, respuestas, errores). **Swagger UI** es una página que lo dibuja como documentación y permite probar cada endpoint ("Try it out"). El contrato pertenece a la **API** (backend); la página es solo una forma de verlo.
+
+| Archivo | Para qué |
+|---|---|
+| `backend/openapi.yaml` | El contrato (OpenAPI 3.1): 5 operaciones, schemas `Control`, `ControlInput`, `ControlPatch`, errores del backend (`{"error"}`) y de API Gateway (`{"message"}`: 429, 500). Servidores: `/api` (proxy de desarrollo) y `https://{apiId}.execute-api…` con el marcador `<api-id>` |
+| `frontend/swagger.html` + `src/dev/swagger.ts` | Página de Swagger UI. Vite la sirve en `http://localhost:5173/swagger.html` con `npm run dev`. **No entra al build**: el build solo incluye `index.html` |
+| `frontend/vite.config.ts` → plugin `openApiDevServer` | Sirve `backend/openapi.yaml` en `/openapi.yaml`. `configureServer` solo corre en desarrollo |
+| `frontend/src/dev/swagger-ui-dist.d.ts` | Tipos mínimos (el paquete no trae) |
+
+**Decisiones del contrato:**
+
+- `security: []` **explícito**: la API no tiene autenticación (hallazgo H4). Declararlo hace que sea una decisión visible y no un olvido. Con Cognito (Etapa 9) se agrega un esquema JWT.
+- Los campos desconocidos se documentan como **ignorados** (allowlist, D49), y los textos obligatorios con `minLength: 1` (no vacíos tras el `strip`).
+- `DELETE` documenta el 409 futuro por findings (D40).
+
+**Un ajuste en el proxy:** la clave pasó de `"/api"` a `"/api/"`. Un prefijo sin barra también captura rutas como `/api-docs`, que se habrían reenviado a la API por error.
+
+**Supply chain:** `swagger-ui-dist` 5.33.1 (devDependency) depende de `@scarf/scarf`, cuyo `postinstall` envía telemetría de instalación. Con `ignore-scripts=true` (D68) ese script **no se ejecuta**.
+
+**Verificación:**
+
+| Prueba | Resultado |
+|---|---|
+| `npx @redocly/cli@2.57.0 lint backend/openapi.yaml` | Primero: 5 errores `security-defined` (la API sin auth). Con `security: []` explícito: **válido, sin advertencias** |
+| `npm run build` | Mismos hashes que antes: Swagger **no** entra al bundle; `dist/` sin rastros |
+| Servidor de desarrollo: `/swagger.html`, `/openapi.yaml`, `/src/dev/swagger.ts`, `/api/controls` | 200 en todos (YAML con `application/yaml`; el proxy sigue funcionando con la clave `/api/`) |
+| Chrome headless sobre `/swagger.html` | Swagger UI dibuja los 5 endpoints, los schemas y el servidor `/api` |
+| `npm audit` / chequeo de identificadores | 0 vulnerabilidades / OK |
+
+**Por qué el servidor de producción no funciona desde Swagger:** primero, su variable `apiId` vale el marcador `<api-id>` (el contrato es público). Pero aunque se ponga el ID real, la request la hace **el navegador** directo desde `localhost:5173` a la API, y CORS solo autoriza el dominio de CloudFront: el navegador la bloquea (*"Failed to fetch"*). El `curl` que muestra Swagger, en cambio, funciona en una terminal: quien llama es un programa. Para probar desde Swagger se usa el servidor `/api` (el proxy). La entrada de producción queda **solo como referencia**, y su descripción lo aclara.
+
+**Pendiente (paso 8.6):** lintear el contrato en el CI. Más adelante (Etapa 14): generar los tipos del frontend desde el contrato y verificar que el backend lo respeta.
+
 ## 5. Plan de la etapa
 
 | Paso | Qué | Toca AWS | Estado |
 |---|---|---|---|
 | 8.1 | Proyecto Vite + React + TS, Tailwind y shadcn/ui | No | ✅ 2026-10-15 |
 | 8.2 | Cliente de la API tipado + proxy de desarrollo | No | ✅ 2026-10-16 |
-| 8.3 | Layout, menú, modo claro/oscuro; `/` → `/app` | No | Pendiente |
+| 8.2b | Contrato OpenAPI + Swagger UI solo en desarrollo (D69) | No | ✅ 2026-10-16 |
+| 8.3 | Layout, menú, modo claro/oscuro (D71); `/` → `/app` | No | Pendiente |
 | 8.4 | Página Controles (tabla, filtros, CRUD, estados, notificaciones) | No | Pendiente |
 | 8.5 | Dashboard | No | Pendiente |
 | 8.6 | Job de frontend en el CI | No | Pendiente |

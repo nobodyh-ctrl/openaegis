@@ -1,7 +1,7 @@
 # Decisiones técnicas
 
 > Índice de **todas** las decisiones del proyecto. D1–D31 están desarrolladas en el doc de cada etapa (acá solo el resumen y el enlace). D32–D54 (Etapa 6) están acá con sus alternativas completas y resumidas en [06-dynamodb.md](06-dynamodb.md).
-> **Próximo número libre: D69.** Cada decisión nueva se agrega acá y en el doc de su etapa.
+> **Próximo número libre: D72.** Cada decisión nueva se agrega acá y en el doc de su etapa.
 > Las decisiones grandes tienen además un **ADR** completo (D55):
 >
 > | ADR | Tema | Decisiones |
@@ -92,6 +92,9 @@ Todas tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSACIÓN]
 | D66 | Landing | Se construye **cuando el producto se pueda instalar y usar**: buena UI, comando de instalación, link al repo. Hasta entonces, `/` redirige a `/app`. 2026-10-15 | Una landing de algo que todavía no se puede instalar promete lo que no existe (regla: documentar solo lo implementado) | Armarla ya, como ruta de la misma app |
 | D67 | Rutas de la SPA en CloudFront | **Error pages**: ante 403 y 404 del origen, devolver `/index.html` con 200; la página "No encontrado" la resuelve React. 2026-10-15 | Sin costo ni código; solución estándar para SPAs en S3 privado (S3 responde 403 a claves inexistentes) | CloudFront Function que reescribe la URL (código y costo propios); rutas con `#` (URLs poco profesionales) |
 | D68 | Política de dependencias npm (*supply chain*) | Versiones **exactas** (`save-exact`), solo versiones con **≥ 14 días** de publicadas, `ignore-scripts=true` en `frontend/.npmrc`, `package-lock.json` versionado; las herramientas de un solo uso (CLI de shadcn) se corren con `npx <paquete>@<versión>` y **no** quedan como dependencia (su CSS se copió a `src/styles/` con nota de licencia MIT). 2026-10-15 | Una versión recién publicada puede ser maliciosa o estar rota; los scripts de instalación ejecutan código ajeno; el CLI de shadcn traía 7 vulnerabilidades *high* (vía `braces`) que no aportaban nada al build | Últimas versiones con `^`; dejar `shadcn` como devDependency |
+| D69 | Contrato de la API | **OpenAPI 3.1 escrito a mano** en `backend/openapi.yaml` (fuente del contrato) + **Swagger UI solo en desarrollo** (`npm run dev`, página `swagger.html` que prueba la API vía el proxy; no entra al build). 2026-10-16 | El contrato estaba duplicado a mano (backend `validation.py` y frontend `api.ts`); sin framework, nada lo genera. Base para generar tipos y verificar el contrato en el CI (Etapa 14) | Swagger UI también en producción (peso, supply chain, y "Try it out" público sin auth); solo YAML; archivos `.http` |
+| D70 | Datos remotos en la UI | **TanStack Query** (`@tanstack/react-query`). 2026-10-16 | Estados de carga y error consistentes, caché, reintentos, recargar la lista después de una mutación, actualización optimista | Hooks propios con `useEffect` |
+| D71 | Identidad visual | **Modo oscuro por defecto** (con interruptor), color de marca **teal**, y colores semánticos fijos para severidad (CRITICAL rojo, HIGH naranja, MEDIUM ámbar, LOW gris azulado) y estado (PASS verde, REVIEW ámbar, FAIL rojo), **siempre con texto o ícono**, nunca solo color. 2026-10-16 | Estética habitual de herramientas de seguridad e infraestructura; accesibilidad para quien no distingue colores | Gris neutro por defecto de shadcn/ui |
 
 ## Propuestas (no decididas)
 
