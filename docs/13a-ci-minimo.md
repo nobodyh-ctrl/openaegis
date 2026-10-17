@@ -124,7 +124,12 @@ jobs.checks:
 
 Los SHAs se verificaron con `gh` contra los releases oficiales (`v7.0.1` de `actions/checkout` y `v7.0.0` de `actions/setup-python`, ambos del 2026-07-20). `persist-credentials` se verificó en el `action.yml` de la action (por defecto vale `true`).
 
-### 4.4 Correrlo localmente
+### 4.4 Cambios posteriores (2026-10-17, D74)
+
+- El job pasó a llamarse `name: checks`: es el **nombre del check** que exige el ruleset de `main`. Antes se llamaba "Tests y chequeo de identificadores", y un ruleset que pedía `checks` nunca se habría cumplido (los PRs quedaban esperando para siempre). El ruleset compara contra el `name:` publicado, no contra el ID del job.
+- `on.push` se limitó a `main`: con PRs, un push a una rama con PR abierto disparaba el CI dos veces.
+
+### 4.5 Correrlo localmente
 
 ```powershell
 python -m unittest discover -s tests -v
