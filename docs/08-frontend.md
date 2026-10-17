@@ -363,6 +363,16 @@ Dependencia nueva: `@tanstack/react-query` **5.104.1** (publicada el 2026-10-02;
 | 6 | Eliminar `TEST-UI` | Diálogo de confirmación; desaparece de la tabla |
 | 7 | Buscar y filtrar | El contador "X de N" cambia; "Limpiar filtros" si no hay coincidencias |
 
+### 4.6 Paso 8.5 — Dashboard y carga bajo demanda (2026-10-17, rama `feat/dashboard`)
+
+- `src/pages/DashboardPage.tsx`: tarjetas (total y por estado), **cumplimiento declarado** (% de "Cumple", barra apilada con leyenda numérica), distribución **por severidad** con cuántos no cumplen, y "Para resolver primero" (los "No cumple", ordenados por severidad). Todo se calcula en el cliente con `GET /controls`, compartiendo la caché de TanStack Query con la página de Controles. Es el estado **declarado a mano**: el score real, basado en checks automáticos, llega en la Etapa 11.
+- Las tarjetas y las severidades son **links con filtro** (`/app/controles?estado=FAIL`, `?severidad=HIGH`); `ControlsPage` toma los filtros iniciales de la URL (solo valores válidos).
+- **Carga bajo demanda** (`lazy` de React Router): cada página es un archivo aparte que se baja al entrar a su ruta. Bundle inicial: 563 kB → **456 kB** (145 kB gzip); Dashboard 5,6 kB; Controles 95 kB. Desaparece el aviso de Vite de 500 kB.
+
+**Ajuste del tema claro:** los bordes no se veían (`--border` con luminosidad 0,91 sobre un fondo de 0,985 y tarjetas blancas). Se oscurecieron `--border` y `--sidebar-border` a 0,86 e `--input` a 0,83, y el fondo bajó a 0,975, para que las tarjetas blancas se despeguen. El tema oscuro no cambió.
+
+**Verificación:** build, tipos, `npm audit` 0 y chequeo de identificadores OK; Chrome headless: totales correctos con los datos reales (3 controles: 0/2/1) y `?estado=REVIEW` abre Controles filtrado ("2 de 3").
+
 ## 5. Plan de la etapa
 
 | Paso | Qué | Toca AWS | Estado |
@@ -372,7 +382,7 @@ Dependencia nueva: `@tanstack/react-query` **5.104.1** (publicada el 2026-10-02;
 | 8.2b | Contrato OpenAPI + Swagger UI solo en desarrollo (D69) | No | ✅ 2026-10-16 |
 | 8.3 | Layout, menú, modo claro/oscuro (D71); `/` → `/app` | No | ✅ 2026-10-17 |
 | 8.4 | Página Controles (tabla, filtros, CRUD, estados, notificaciones) | No | ✅ 2026-10-17 (interacciones: verificación manual pendiente) |
-| 8.5 | Dashboard | No | Pendiente |
+| 8.5 | Dashboard + carga de páginas bajo demanda | No | ✅ 2026-10-17 |
 | 8.6 | Job de frontend en el CI | No | Pendiente |
 | 8.7 | CloudFront: error pages (D67) | Sí (configuración, sin costo) | Pendiente |
 | 8.8 | Deploy desde CloudShell (build, `s3 sync` con caché, invalidación) | Sí (escritura en S3) | Pendiente |
