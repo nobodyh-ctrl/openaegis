@@ -55,18 +55,28 @@ def mask(value):
     return value[:4] + "..." if len(value) > 4 else "..."
 
 
+def file_text(path):
+    """Texto a revisar de un archivo, o None si no hay nada que revisar."""
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+    except FileNotFoundError:
+        # Borrado en disco pero todavía en el índice de git (antes de commitear): no puede filtrar nada
+        return None
+    if path.endswith(".png"):
+        return drawio_xml(data)
+    if b"\0" in data:
+        return None  # otro archivo binario: no hay texto que revisar
+    return data.decode("utf-8", errors="replace")
+
+
 def main():
     files = subprocess.run(["git", "ls-files"], capture_output=True, text=True, check=True).stdout.splitlines()
     found = 0
     for path in files:
-        with open(path, "rb") as f:
-            data = f.read()
-        if path.endswith(".png"):
-            text = drawio_xml(data)
-        elif b"\0" in data:
-            continue  # otro archivo binario: no hay texto que revisar
-        else:
-            text = data.decode("utf-8", errors="replace")
+        text = file_text(path)
+        if text is None:
+            continue
         for line_no, kind, value in find_identifiers(text):
             print(f"{path}:{line_no}: posible {kind} ({mask(value)}). Reemplazalo por un marcador.")
             found += 1

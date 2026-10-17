@@ -45,6 +45,7 @@
 | 19 | Se documentó "un statement por ruta" en la resource-based policy de la Lambda, pero `PATCH` y `DELETE` funcionaron sin statements nuevos | `aws lambda get-policy`: 3 statements, `SourceArn` `.../*/*/<path>` | Docs corregidos | El segundo `*` del `SourceArn` es el **método**: el permiso es por **path**. Verificar la configuración real en lugar de suponerla |
 | 20 | El simulador de IAM devolvió **una** fila para **dos** recursos, con un patrón (`arn:aws:logs:${Region}:${Account}:.+`) en lugar de un ARN | Salida de `simulate-principal-policy` | `--query` sobre `EvaluationResults[0].ResourceSpecificResults[]` | Con varios recursos, el resultado general es por **acción**; el detalle por recurso está anidado. Un `--query` mal hecho puede **ocultar** justo el dato que importa |
 | 21 | Un test de regresión reportaba `ERROR` (TypeError) en vez de `FAIL` al reintroducir el bug | Mutación local de `validation.py` en una copia | `assertIsNotNone(err, "mensaje")` antes del `assertIn` | Un test también se prueba: hay que verlo fallar, y que falle con un mensaje claro |
+| 22 | `check_identifiers.py` se caía con `FileNotFoundError` | Al borrar `frontend/src/App.tsx` sin commitear, `git ls-files` lo seguía listando | Función `file_text()` que devuelve `None` si el archivo no existe + 3 tests | `git ls-files` lista el **índice** de git, no el disco. En el CI no pasaba (checkout limpio): era un bug solo local, que apareció recién al borrar un archivo versionado |
 
 ## 3. Predicciones del `PATCH`
 

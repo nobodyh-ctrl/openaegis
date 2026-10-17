@@ -10,7 +10,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-from check_identifiers import find_identifiers, mask  # noqa: E402
+import tempfile  # noqa: E402
+
+from check_identifiers import file_text, find_identifiers, mask  # noqa: E402
 
 FAKE_ACCOUNT = "1234" + "56789012"
 FAKE_API_ID = "abcde" + "12345"
@@ -64,6 +66,25 @@ class DejaPasarMarcadoresTests(unittest.TestCase):
             "3d3c42e5aac5ba805825da76410c181273ba90b1\n"  # SHA de un commit
         )
         self.assertEqual(find_identifiers(text), [])
+
+
+class FileTextTests(unittest.TestCase):
+
+    def test_archivo_borrado_pero_listado_por_git(self):
+        # Regresión: un archivo versionado borrado antes del commit hacía caer el chequeo
+        self.assertIsNone(file_text("no-existe/archivo-borrado.tsx"))
+
+    def test_archivo_de_texto(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "a.md"
+            path.write_text("hola", encoding="utf-8")
+            self.assertEqual(file_text(str(path)), "hola")
+
+    def test_binario_que_no_es_png(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "a.bin"
+            path.write_bytes(b"\x00\x01\x02")
+            self.assertIsNone(file_text(str(path)))
 
 
 class MaskTests(unittest.TestCase):
