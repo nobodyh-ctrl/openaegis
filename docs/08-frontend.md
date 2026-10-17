@@ -336,6 +336,33 @@ Dependencia nueva: `@tanstack/react-query` **5.104.1** (publicada el 2026-10-02;
 
 **Ícono de la app (2026-10-17):** `frontend/public/favicon.svg` (escudo con check, la forma `shield-check` de Lucide, licencia ISC, en teal sobre el fondo de la marca `#0b1524`) y `frontend/public/apple-touch-icon.png` (180×180, opaco: iOS redondea los íconos y rellena de negro las esquinas transparentes), generado renderizando el SVG con Chrome headless. `index.html` los referencia y define `theme-color`. `public/` se copia tal cual a `dist/` (sin hash en el nombre: al desplegar, conviene invalidarlos si cambian). Verificado: legible a 16 px en barras claras y oscuras; servidos con `image/svg+xml` e `image/png`; presentes en `dist/`.
 
+### 4.5 Paso 8.4 — Página de Controles (2026-10-17, rama `feat/pagina-controles`)
+
+| Archivo | Para qué |
+|---|---|
+| `src/lib/control-rules.ts` | Espejo de `FIELD_RULES` (D73): validación previa al envío y armado del body (`trim`, opcionales vacíos omitidos en el `POST`) |
+| `src/lib/use-controls.ts` | Hooks de TanStack Query: listar, crear, editar (con **actualización optimista** y rollback si la API falla) y borrar; toda mutación refresca la lista |
+| `src/components/controls/badges.tsx` | Severidad y estado con color **más texto e ícono** (D71); orden por severidad |
+| `src/components/controls/ControlsTable.tsx` | Tabla (D72); estado editable desde la tabla; menú de acciones (editar, eliminar). En móvil, el código y la severidad pasan dentro de la celda del control |
+| `src/components/controls/ControlFormSheet.tsx` | Crear y editar en un panel lateral. En edición, el `PATCH` lleva **solo los campos que cambiaron**. Un 409 se muestra en el campo Código; otros errores, arriba del botón |
+| `src/components/controls/DeleteControlDialog.tsx` | Confirmación de borrado |
+| `src/pages/ControlsPage.tsx` | Búsqueda y filtros en el cliente, contador, estados de carga (skeleton), error (con reintento), vacío y "sin coincidencias" |
+| `src/components/ui/{table,input,label,textarea,select,alert-dialog,dropdown-menu,skeleton,sonner}.tsx` | `npx shadcn@4.21.1 add …`. Sumó `sonner` 2.0.8 (notificaciones, 2026-08-09) y `next-themes`; este último se **sacó**: `sonner.tsx` usa nuestro `useTheme` |
+
+**Verificación:** build y tipos OK; `npm audit` 0; chequeo de identificadores OK; Chrome headless: tabla con los 3 controles, badges y filtros en escritorio y en móvil (390 px). El bundle pasó a 563 kB (175 kB gzip) y Vite avisa que supera 500 kB: se resuelve en el 8.5 con carga de páginas bajo demanda.
+
+**No verificado automáticamente** (requiere interacción): crear, editar, cambiar el estado, borrar, el 409 en el campo y el rollback optimista. Prueba manual:
+
+| # | Acción | Esperado |
+|---|---|---|
+| 1 | Crear un control `TEST-UI` válido | Notificación "creado" y aparece en la tabla |
+| 2 | Crear otro con código `S3-001` | Error del backend (409) **debajo del campo Código** |
+| 3 | Enviar el formulario vacío | Errores en los obligatorios, sin llamar a la API |
+| 4 | Cambiar el estado desde la tabla | El badge cambia al instante y aparece la notificación |
+| 5 | Editar el título de `TEST-UI` | Solo se envía `title` (DevTools → Network → body del `PATCH`) |
+| 6 | Eliminar `TEST-UI` | Diálogo de confirmación; desaparece de la tabla |
+| 7 | Buscar y filtrar | El contador "X de N" cambia; "Limpiar filtros" si no hay coincidencias |
+
 ## 5. Plan de la etapa
 
 | Paso | Qué | Toca AWS | Estado |
@@ -344,7 +371,7 @@ Dependencia nueva: `@tanstack/react-query` **5.104.1** (publicada el 2026-10-02;
 | 8.2 | Cliente de la API tipado + proxy de desarrollo | No | ✅ 2026-10-16 |
 | 8.2b | Contrato OpenAPI + Swagger UI solo en desarrollo (D69) | No | ✅ 2026-10-16 |
 | 8.3 | Layout, menú, modo claro/oscuro (D71); `/` → `/app` | No | ✅ 2026-10-17 |
-| 8.4 | Página Controles (tabla, filtros, CRUD, estados, notificaciones) | No | Pendiente |
+| 8.4 | Página Controles (tabla, filtros, CRUD, estados, notificaciones) | No | ✅ 2026-10-17 (interacciones: verificación manual pendiente) |
 | 8.5 | Dashboard | No | Pendiente |
 | 8.6 | Job de frontend en el CI | No | Pendiente |
 | 8.7 | CloudFront: error pages (D67) | Sí (configuración, sin costo) | Pendiente |
