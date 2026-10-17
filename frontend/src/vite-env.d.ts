@@ -4,6 +4,8 @@
 interface ImportMetaEnv {
   /** URL de la API en producción. Si no está definida, se usa "/api" (el proxy de desarrollo). */
   readonly VITE_API_URL?: string;
+  /** Región evaluada, para mostrar en la UI. Por defecto "us-east-1". */
+  readonly VITE_AWS_REGION?: string;
 }
 
 interface ImportMeta {

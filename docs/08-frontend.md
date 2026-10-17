@@ -178,6 +178,8 @@ Con cada deploy, solo hay que invalidar `/index.html`. Resuelve por diseño el p
 | D69 | Contrato de la API | `backend/openapi.yaml` (OpenAPI 3.1) + Swagger UI solo en desarrollo |
 | D70 | Datos remotos | TanStack Query |
 | D71 | Identidad visual | Oscuro por defecto, teal, colores semánticos con texto o ícono |
+| D72 | Tabla | Table de shadcn; filtros, búsqueda y orden en el cliente |
+| D73 | Formulario | Estado y validación propios (espejo de `FIELD_RULES`); errores del backend en el campo |
 
 ## 4. Configuración realizada
 
@@ -292,6 +294,48 @@ Decisiones de diseño del cliente:
 
 **Pendiente (paso 8.6):** lintear el contrato en el CI. Más adelante (Etapa 14): generar los tipos del frontend desde el contrato y verificar que el backend lo respeta.
 
+### 4.4 Paso 8.3 — Layout, rutas y tema (2026-10-17)
+
+```text
+main.tsx:  <ThemeProvider> → <QueryClientProvider> → <RouterProvider router={router} />
+
+router.tsx:  /                → <Navigate to="/app">   (la landing va acá, D66)
+             /app             → <AppLayout> ─┬─ index      → DashboardPage   (placeholder hasta 8.5)
+                                             ├─ controles  → ControlsPage    (placeholder hasta 8.4)
+                                             └─ *          → NotFoundPage
+             *                → NotFoundPage
+```
+
+| Archivo | Para qué |
+|---|---|
+| `src/router.tsx` | Rutas con React Router (`createBrowserRouter`) |
+| `src/components/layout/AppLayout.tsx` | Menú lateral (escritorio) o en `Sheet` (móvil), barra superior con la región y el tema, `<Outlet />` para cada página, enlace "Saltar al contenido" |
+| `src/components/layout/SidebarNav.tsx` | Marca y navegación (`NavLink` marca la página activa y pone `aria-current`). Solo lo que existe: Findings y Score aparecen en la Etapa 11 |
+| `src/components/layout/ThemeToggle.tsx`, `src/lib/theme.tsx` | Tema claro/oscuro: clase `dark` en `<html>`, recordado en `localStorage` (con `try/catch`: puede no estar disponible) |
+| `index.html` (script en `<head>`) | Aplica el tema **antes** de dibujar, para evitar el parpadeo claro → oscuro |
+| `src/index.css` | Variables de color de D71: marca teal, fondo oscuro con leve tinte azulado |
+| `src/lib/query-client.ts` | TanStack Query: datos frescos 30 s, sin recargar al volver a la pestaña, **sin reintentos en 4xx** (un 400/404/409 no se arregla repitiendo; un 429 es el throttling), 1 reintento en red o 5xx |
+| `src/lib/config.ts` | `AWS_REGION` (de `VITE_AWS_REGION`, por defecto `us-east-1`) y el link al repo. El ID de cuenta **no** se muestra hasta Cognito (D64) |
+| `src/pages/*.tsx` | Dashboard y Controles (por ahora, placeholders honestos) y la página 404 |
+| `src/components/ui/sheet.tsx`, `badge.tsx` | `npx shadcn@4.21.1 add sheet badge`. No sumaron dependencias (usan Radix, que ya estaba) |
+
+Dependencia nueva: `@tanstack/react-query` **5.104.1** (publicada el 2026-10-02; depende solo de `@tanstack/query-core`; acepta React 18/19).
+
+**Verificación:**
+
+| Prueba | Resultado |
+|---|---|
+| `npm run build` (incluye `tsc`) | OK · JS 427 kB (137 kB gzip) · CSS 29 kB |
+| Chrome headless: `/` | Redirige a `/app`, con "Dashboard" activo en el menú |
+| Chrome headless: `/app/controles` | "La API respondió con 3 controles": TanStack Query → cliente → proxy → API |
+| Chrome headless: `/app/no-existe` | Página 404 dentro del layout |
+| Móvil (390 px) | Todo entra. La primera captura salió recortada porque **Chrome headless tiene un ancho mínimo de ventana** (~500 px); dibujando la app en un `<iframe>` de 390 px se confirmó que no era un problema de la app |
+| Tema claro (`localStorage = "light"`) | Colores claros y el ícono de luna |
+| `npm audit` / chequeo de identificadores | 0 vulnerabilidades / OK |
+| **No verificado** | Abrir el menú móvil (`Sheet`) con un clic: requiere interacción |
+
+**Ícono de la app (2026-10-17):** `frontend/public/favicon.svg` (escudo con check, la forma `shield-check` de Lucide, licencia ISC, en teal sobre el fondo de la marca `#0b1524`) y `frontend/public/apple-touch-icon.png` (180×180, opaco: iOS redondea los íconos y rellena de negro las esquinas transparentes), generado renderizando el SVG con Chrome headless. `index.html` los referencia y define `theme-color`. `public/` se copia tal cual a `dist/` (sin hash en el nombre: al desplegar, conviene invalidarlos si cambian). Verificado: legible a 16 px en barras claras y oscuras; servidos con `image/svg+xml` e `image/png`; presentes en `dist/`.
+
 ## 5. Plan de la etapa
 
 | Paso | Qué | Toca AWS | Estado |
@@ -299,7 +343,7 @@ Decisiones de diseño del cliente:
 | 8.1 | Proyecto Vite + React + TS, Tailwind y shadcn/ui | No | ✅ 2026-10-15 |
 | 8.2 | Cliente de la API tipado + proxy de desarrollo | No | ✅ 2026-10-16 |
 | 8.2b | Contrato OpenAPI + Swagger UI solo en desarrollo (D69) | No | ✅ 2026-10-16 |
-| 8.3 | Layout, menú, modo claro/oscuro (D71); `/` → `/app` | No | Pendiente |
+| 8.3 | Layout, menú, modo claro/oscuro (D71); `/` → `/app` | No | ✅ 2026-10-17 |
 | 8.4 | Página Controles (tabla, filtros, CRUD, estados, notificaciones) | No | Pendiente |
 | 8.5 | Dashboard | No | Pendiente |
 | 8.6 | Job de frontend en el CI | No | Pendiente |

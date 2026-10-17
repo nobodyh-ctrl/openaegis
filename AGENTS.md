@@ -60,7 +60,8 @@ openaegis/
 │   ├── .npmrc                ← save-exact, ignore-scripts
 │   ├── vite.config.ts        ← alias @/, proxy de desarrollo /api/ (API_PROXY_TARGET en .env.local) y /openapi.yaml
 │   ├── swagger.html          ← Swagger UI SOLO en desarrollo (http://localhost:5173/swagger.html)
-│   └── src/                  ← main.tsx, App.tsx, components/ui (shadcn), lib/utils.ts, styles/
+│   ├── public/               ← se copia tal cual a dist/: favicon.svg, apple-touch-icon.png
+│   └── src/                  ← main.tsx (providers), router.tsx, pages/, components/layout, components/ui (shadcn), lib/ (api, theme, query-client, config), styles/
 ├── tests/                    ← tests unitarios con unittest (sin AWS): validation, responses, check_identifiers
 ├── scripts/
 │   └── check_identifiers.py  ← falla si un archivo versionado tiene un ID real (cuenta, API, CloudFront, access key)
@@ -144,7 +145,15 @@ aws lambda get-function-configuration --function-name cloud-sec-checklist-api
 aws lambda get-policy --function-name cloud-sec-checklist-api
 ```
 
-**Tests y chequeos locales** (los mismos que corre el CI en cada push):
+**Frontend** (los comandos de `npm` se corren **dentro de `frontend/`**, donde está el `package.json`; desde la raíz dan `ENOENT`, o se usa `npm --prefix frontend run dev`):
+
+```powershell
+cd frontend
+npm run dev        # http://localhost:5173 (la app) y /swagger.html (contrato); requiere frontend/.env.local con API_PROXY_TARGET
+npm run build      # verifica tipos y compila a frontend/dist/
+```
+
+**Tests y chequeos locales** (desde la **raíz**; son los mismos que corre el CI en cada push):
 
 ```powershell
 python -m unittest discover -s tests -v
@@ -184,7 +193,7 @@ El usuario pidió un **tutor técnico exigente, no un generador de código**. Re
 ## 10. Cómo documentar
 
 - **Un doc por etapa** en `docs/NN-tema.md`, con la estructura de los existentes: objetivo, conceptos, decisiones (`D#`), configuración, verificación, debugging, costos, relación con Cloud Security, cómo revertir, cosas que NO hacer. Con marcadores en lugar de identificadores reales.
-- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D72**), y al doc de su etapa.
+- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D74**), y al doc de su etapa.
 - **ADRs** (`docs/architecture-decisions/NNN-tema.md`, D55): solo para decisiones **grandes**; `DECISIONS.md` es el índice de todas. Formato: Contexto, Decisión, Por qué, Alternativas consideradas, Ventajas, Desventajas, Consideraciones de seguridad, Consideraciones de costo, Consecuencias, Evolución futura (más estado, fecha y decisiones relacionadas). Existen ADR-001 a ADR-006; el siguiente es **007**. Al crear uno, agregarlo a la tabla de `DECISIONS.md`.
 - **README:** contar la evolución, con ventajas **y desventajas**; **solo lo implementado**.
 - Actualizar ROADMAP y ARCHITECTURE cuando algo cambie de estado.

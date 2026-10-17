@@ -4,6 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OpenAegis</title>
+    <!-- Ícono de la pestaña (SVG, se ve nítido en cualquier tamaño) y de "agregar a pantalla de inicio" en iOS -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Color de la barra del navegador en móviles: el fondo oscuro de la marca -->
+    <meta name="theme-color" content="#0b1524" />
+    <!-- Aplica el tema antes de dibujar, para evitar un parpadeo claro→oscuro al cargar (D71). -->
+    <script>
+      try {
+        if (localStorage.getItem("openaegis-theme") !== "light") document.documentElement.classList.add("dark");
+      } catch {
+        document.documentElement.classList.add("dark");
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

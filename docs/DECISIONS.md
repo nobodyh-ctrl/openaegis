@@ -1,7 +1,7 @@
 # Decisiones técnicas
 
 > Índice de **todas** las decisiones del proyecto. D1–D31 están desarrolladas en el doc de cada etapa (acá solo el resumen y el enlace). D32–D54 (Etapa 6) están acá con sus alternativas completas y resumidas en [06-dynamodb.md](06-dynamodb.md).
-> **Próximo número libre: D72.** Cada decisión nueva se agrega acá y en el doc de su etapa.
+> **Próximo número libre: D74.** Cada decisión nueva se agrega acá y en el doc de su etapa.
 > Las decisiones grandes tienen además un **ADR** completo (D55):
 >
 > | ADR | Tema | Decisiones |
@@ -95,6 +95,8 @@ Todas tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSACIÓN]
 | D69 | Contrato de la API | **OpenAPI 3.1 escrito a mano** en `backend/openapi.yaml` (fuente del contrato) + **Swagger UI solo en desarrollo** (`npm run dev`, página `swagger.html` que prueba la API vía el proxy; no entra al build). 2026-10-16 | El contrato estaba duplicado a mano (backend `validation.py` y frontend `api.ts`); sin framework, nada lo genera. Base para generar tipos y verificar el contrato en el CI (Etapa 14) | Swagger UI también en producción (peso, supply chain, y "Try it out" público sin auth); solo YAML; archivos `.http` |
 | D70 | Datos remotos en la UI | **TanStack Query** (`@tanstack/react-query`). 2026-10-16 | Estados de carga y error consistentes, caché, reintentos, recargar la lista después de una mutación, actualización optimista | Hooks propios con `useEffect` |
 | D71 | Identidad visual | **Modo oscuro por defecto** (con interruptor), color de marca **teal**, y colores semánticos fijos para severidad (CRITICAL rojo, HIGH naranja, MEDIUM ámbar, LOW gris azulado) y estado (PASS verde, REVIEW ámbar, FAIL rojo), **siempre con texto o ícono**, nunca solo color. 2026-10-16 | Estética habitual de herramientas de seguridad e infraestructura; accesibilidad para quien no distingue colores | Gris neutro por defecto de shadcn/ui |
+| D72 | Tabla de controles | **Table de shadcn** (HTML semántico) con filtros, búsqueda y orden **en el cliente**. 2026-10-17 | Son decenas de controles; `GET /controls` ya trae todos | TanStack Table (resuelve problemas de tablas grandes que no tenemos) |
+| D73 | Formulario de control | **Estado propio + validación propia** espejo de `FIELD_RULES` (obligatorios, largos, enums); los errores del backend (400, 409) se muestran en el campo. La validación de verdad es la del backend: la del frontend es para avisar antes. 2026-10-17 | Un formulario de 8 campos no justifica dos dependencias | react-hook-form + zod |
 
 ## Propuestas (no decididas)
 
