@@ -88,7 +88,7 @@ Localmente existe `lambda.zip` (artefacto de deploy, ignorado por `.gitignore`).
 | IAM auditado (Etapa 7) | ✅ D56–D58 aplicados y verificados (2026-10-15) |
 | CI mínimo (Etapa 13a): 42 tests + chequeo de identificadores | ✅ [CONFIRMADO-REPO] + run verde en GitHub (2026-10-15) |
 | Job de frontend en el CI (paso 8.6): `npm ci`, typecheck, build, `npm audit` | ✅ [CONFIRMADO-REPO] + PR #5 mergeado con `checks` en verde (2026-10-21) |
-| Frontend SPA (React + Vite + TS + Cloudscape, D75/D76) | ✅ código [CONFIRMADO-REPO] — implementado y verificado en local; **desplegado** en CloudFront el 2026-10-21 (paso 8.8, D79) [CONVERSACIÓN] |
+| Frontend SPA (React + Vite + TS + Cloudscape, D75/D76) | ✅ código [CONFIRMADO-REPO] — implementado y verificado en local; **desplegado** en CloudFront el 2026-10-21 (paso 8.8, D79) y CRUD verificado en producción (8.9) [CONVERSACIÓN]. **Etapa 8 completa** |
 | Cognito, CloudWatch avanzado, checks + findings, CDK, `cdk synth` en CI, tests de `controls.py` | [PENDIENTE] (Etapas 9–16) |
 
 Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).

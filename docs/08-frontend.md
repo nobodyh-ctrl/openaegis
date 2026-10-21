@@ -1,6 +1,6 @@
 # Etapa 8 — Frontend: SPA con React + Vite + TypeScript
 
-> **Estado:** ⏳ en curso (iniciada el 2026-10-15). Este documento se completa a medida que avanza la etapa: hoy tiene los **conceptos** y las **decisiones**; configuración, verificación y debugging se agregan en cada paso.
+> **Estado:** ✅ completa (2026-10-15 → 2026-10-21). La SPA está desplegada en S3 + CloudFront y el CRUD se verificó en producción (§4.12).
 > **Costo de la etapa:** USD 0 extra en AWS (mismo S3 + CloudFront; archivos estáticos dentro del Free Tier).
 
 ## 1. Objetivo
@@ -180,6 +180,10 @@ Con cada deploy, solo hay que invalidar `/index.html`. Resuelve por diseño el p
 | D71 | Identidad visual | Oscuro por defecto, teal, colores semánticos con texto o ícono. **Parcialmente superada por D76: el teal pasa al theming de Cloudscape; el modo oscuro y los colores semánticos siguen.** |
 | D72 | Tabla | Table de shadcn; filtros, búsqueda y orden en el cliente. **Superada por D75: `Table` + `useCollection` de Cloudscape.** |
 | D73 | Formulario | Estado y validación propios (espejo de `FIELD_RULES`); errores del backend en el campo |
+| D75 | Componentes | Cloudscape Design System reemplaza a shadcn/ui + Tailwind (§4.7) |
+| D76 | Color de marca | Teal como acento con el theming de Cloudscape |
+| D77 | Excepción a D68 | `vite` 8.3.2 → 8.3.5 el mismo día de publicado, por una vulnerabilidad HIGH (paso 8.6) |
+| D79 | Deploy | Build local sin credenciales de AWS; `Cache-Control` por tipo de archivo; assets → `index.html`; sin `--delete` (§4.11) |
 
 ## 4. Configuración realizada
 
@@ -537,6 +541,26 @@ aws s3 rm s3://$BUCKET/favicon.svg; aws s3 rm s3://$BUCKET/logo.svg; aws s3 rm s
 aws cloudfront create-invalidation --distribution-id $DIST --paths "/*"
 ```
 
+### 4.12 Paso 8.9 — Verificación en producción (2026-10-21)
+
+En desarrollo, el proxy de Vite hacía que el navegador viera un solo origen: **CORS nunca se había probado** desde la app. En producción, la SPA (`https://<distribucion>.cloudfront.net`) y la API (`https://<api-id>.execute-api...`) son orígenes distintos, y `POST` con JSON, `PATCH` y `DELETE` disparan un **preflight** `OPTIONS`.
+
+Prueba manual en el navegador (F12 → *Network* y *Console*) [CONVERSACIÓN]: **las 9 pruebas OK**. Los códigos HTTP exactos no se registraron.
+
+| # | Acción | Esperado |
+|---|---|---|
+| 1 | Crear `TEST-UI` | Notificación y fila nueva; preflight + `POST` |
+| 2 | Crear con un código existente | Error 409 debajo del campo Código |
+| 3 | Formulario vacío | Errores en el cliente, sin request |
+| 4 | Cambiar el estado desde la tabla | Actualización optimista; preflight + `PATCH` |
+| 5 | Editar el título | El body del `PATCH` lleva solo `title` |
+| 6 | Buscar y filtrar | El contador cambia, sin request |
+| 7 | Eliminar `TEST-UI` | Confirmación; preflight + `DELETE`; el control de prueba quedó borrado |
+| 8 | `/app/cualquier-cosa` | Página "No encontrado" de React (documento con 200, por la 8.7) |
+| 9 | Consola | Sin errores de CORS ni de *MIME type* |
+
+Con esto queda verificada en producción también la parte del 8.4 que estaba pendiente (crear, editar y borrar con clics).
+
 ## 5. Plan de la etapa
 
 | Paso | Qué | Toca AWS | Estado |
@@ -545,10 +569,81 @@ aws cloudfront create-invalidation --distribution-id $DIST --paths "/*"
 | 8.2 | Cliente de la API tipado + proxy de desarrollo | No | ✅ 2026-10-16 |
 | 8.2b | Contrato OpenAPI + Swagger UI solo en desarrollo (D69) | No | ✅ 2026-10-16 |
 | 8.3 | Layout, menú, modo claro/oscuro (D71); `/` → `/app` | No | ✅ 2026-10-17 |
-| 8.4 | Página Controles (tabla, filtros, CRUD, estados, notificaciones) | No | ✅ 2026-10-17 (interacciones: verificación manual pendiente) |
+| 8.4 | Página Controles (tabla, filtros, CRUD, estados, notificaciones) | No | ✅ 2026-10-17 (interacciones verificadas en producción en la 8.9) |
 | 8.5 | Dashboard + carga de páginas bajo demanda | No | ✅ 2026-10-17 |
 | 8.5b | Migración a Cloudscape y rediseño de la UI (D75/D76) | No | ✅ 2026-10-17 |
 | 8.6 | Job de frontend en el CI (`npm ci`, `typecheck`, `build`, `audit`) | No | ✅ 2026-10-21 (PR #5): extiende el job `checks`; `vite` 8.3.2 → 8.3.5 por un fix HIGH (excepción D77). Detalle en [13a §4.6](13a-ci-minimo.md) |
 | 8.7 | CloudFront: error pages (D67) | Sí (configuración, sin costo) | ✅ 2026-10-21: 403 y 404 → `/index.html` con 200; `/app/controles` pasó de 403 a 200. Detalle en §4.10 |
 | 8.8 | Deploy (build local, `s3 sync` con caché desde CloudShell, invalidación) | Sí (escritura en S3) | ✅ 2026-10-21: SPA desplegada; build en la PC sin credenciales de AWS (D79). Detalle en §4.11 |
-| 8.9 | Verificación en el navegador, checkpoint y cierre de este doc | — | Pendiente |
+| 8.9 | Verificación en el navegador, checkpoint y cierre de este doc | — (solo uso de la app) | ✅ 2026-10-21: CRUD completo en producción, sin errores de CORS. Detalle en §4.12 |
+
+## 6. Verificación (resumen de la etapa)
+
+| Qué | Cómo | Resultado |
+|---|---|---|
+| Código | CI `checks`: `npm ci`, typecheck, build, `npm audit` | ✅ en cada PR (desde el 8.6) |
+| Rutas de la SPA | `curl -sI $CF/app/controles` antes y después de la 8.7 | 403 → 200 |
+| Caché | `curl -sSI` del `index.html` y de un asset | `no-cache` / `immutable` |
+| App en producción | Navegador: Dashboard, CRUD, recarga, 404 de React | ✅ (§4.12) |
+
+## 7. Costos
+
+USD 0 extra. Las error pages no tienen costo; el deploy fueron ~20 `PUT` a S3 y 2 paths de invalidación (las primeras 1.000 por mes son gratis); las requests de la app entran en el Free Tier de CloudFront, API Gateway, Lambda y DynamoDB. CloudShell y GitHub Actions (repo público) son gratis.
+
+## 8. Relación con Cloud Security
+
+| Tema | Qué se aplicó |
+|---|---|
+| Enumeración | CloudFront sin `s3:ListBucket`: S3 responde 403 a lo inexistente. Las error pages no lo cambian: lo inexistente devuelve la app |
+| Least privilege en el deploy | El código de terceros (npm) corre sin credenciales de AWS (D79) |
+| Supply chain | Lockfile, `npm ci`, `ignore-scripts`, versiones exactas con ≥ 14 días (D68) y `npm audit` bloqueante |
+| XSS | React escapa el texto; prohibido `dangerouslySetInnerHTML` con datos de la API |
+| Secretos | Ninguno en el frontend: todo lo compilado es público (la URL de la API también) |
+| CORS | Protege a los **usuarios** de que otro sitio use su navegador contra la API; **no** protege la API (`curl` lo ignora) |
+| IDs en la URL | `uuid4` evita la enumeración, pero no es control de acceso: falta autenticación (Cognito, Etapa 9) |
+
+## 9. Cómo revertir esta etapa
+
+1. **Deploy:** volver a subir la página de prueba (`~/index-prueba.html` de CloudShell) y borrar `assets/` y los archivos de `public/` (§4.11). ⚠️ Sin versioning, el borrado es permanente.
+2. **Error pages:** CloudFront → *Error pages* → borrar las dos respuestas (§4.10).
+3. **CI:** quitar los pasos de frontend del job `checks` en `.github/workflows/ci.yml`.
+4. **Código:** la carpeta `frontend/` se elimina con un PR; el historial queda en git.
+
+## 10. Pendientes y mejoras posibles
+
+- Lint del contrato OpenAPI en el CI [PENDIENTE] (§4.3).
+- Limpiar en S3 los assets de deploys viejos (por ejemplo, los de más de N días) [PROPUESTA].
+- Servir la API bajo el mismo dominio de CloudFront (`/api/*`, D30) para evitar CORS [PROPUESTA].
+- Páginas legales (Privacidad, Términos) [PENDIENTE]: hoy llevan a la 404.
+- Revisar `src/styles/overrides.css` después de cada actualización de Cloudscape (selector sobre una clase interna).
+- Mostrar el ID de la cuenta en la UI recién con Cognito (D64, Etapa 9).
+
+## 11. Cosas que NO se deben hacer
+
+- Poner `immutable` (o un `max-age` largo) al `index.html`: los usuarios quedarían atrapados en la versión vieja, y la invalidación de CloudFront no limpia la caché del navegador.
+- Subir el `index.html` antes que los assets, o usar `--delete` en el `s3 sync`.
+- Compilar con dependencias de npm en una shell con credenciales de admin.
+- Escribir la URL de la API, el dominio de CloudFront o el ID de la distribución en el repo (D62).
+- Hacer público el bucket o usar *static website hosting* para resolver las rutas (rompe D9).
+- Relajar el CORS de producción para desarrollar: para eso está el proxy de Vite.
+- Usar `dangerouslySetInnerHTML` con datos de la API.
+
+## 12. Checkpoint (2026-10-21)
+
+| Eje | Qué quedó |
+|---|---|
+| **CONCEPTO** | Una SPA es un `index.html` más JS: React corre en el navegador, y S3 y CloudFront solo entregan archivos. Vite: `dev` (servidor con proxy) vs. `build` (estáticos con hash) |
+| **ARQUITECTURA** | Navegador → CloudFront (OAC) → S3 privado para la app; navegador → API Gateway → Lambda → DynamoDB para los datos. Dos orígenes unidos por CORS; error pages 403/404 → `/index.html` |
+| **SEGURIDAD** | Ver §8 |
+| **COSTOS** | USD 0 extra |
+| **PRÁCTICA** | Build → zip → `s3 sync`/`cp` con `Cache-Control` → invalidación; marcadores, ID vs. dominio, `-sS` |
+| **VERIFICACIÓN** | `curl` antes y después, headers de caché, CRUD en el navegador con preflight |
+
+Preguntas y respuestas del usuario:
+
+| Pregunta | Respuesta |
+|---|---|
+| Si el preflight de un `DELETE` no autoriza el método, ¿qué pasa? | ✅ El navegador no manda el `DELETE`: la Lambda no se entera y el control sigue en DynamoDB |
+| Después de un deploy, ¿un usuario con la pestaña abierta ve la versión nueva al recargar? | ✅ Sí, por el `no-cache` del `index.html`, que apunta a los assets con el hash nuevo |
+| ¿Qué pasa si el `index.html` lleva `immutable`? | No lo sabía; se explicó: queda atrapado en la versión vieja hasta un año, y la invalidación no ayuda porque no limpia la caché del navegador |
+| ¿Qué protege CORS, y qué va a proteger la API? | ✅ CORS limita qué orígenes usan la API desde el navegador (protege a los usuarios); la API la va a proteger la autenticación y autorización de Cognito (Etapa 9) |
