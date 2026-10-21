@@ -1,6 +1,6 @@
 # Roadmap
 
-> Estado al 2026-10-12. **Regla absoluta: terminar la V1 (Bloque A) antes de empezar cualquier cosa del Bloque B.**
+> Estado al 2026-10-19. **Regla absoluta: terminar la V1 (Bloque A) antes de empezar cualquier cosa del Bloque B.**
 > El Bloque B es una **visión**, no un plan cerrado: cada tecnología se agrega solo si resuelve un problema real (*problema → requisito → alternativas → trade-offs → decisión → implementación → testing → observación → documentación*).
 
 ## Bloque A — V1: Cloud Security Checklist / Assessment (read-only)
@@ -26,7 +26,7 @@ Orden original 0–16. **Cambio acordado:** Lambda pasó a ser la Etapa 4 y API 
 | 6 | DynamoDB + CRUD de controles | ✅ (2026-10-13) | [06-dynamodb.md](06-dynamodb.md) |
 | 7 | IAM: auditoría y least privilege | ✅ (2026-10-15) | [07-iam.md](07-iam.md) |
 | 13a | CI mínimo (adelantado, D60): tests unitarios sin AWS + chequeo de identificadores | ✅ (2026-10-15) | [13a-ci-minimo.md](13a-ci-minimo.md) |
-| **8** | **Frontend: SPA React + Vite + TS (D65) contra la API** | ⏳ **EN CURSO** | — |
+| **8** | **Frontend: SPA React + Vite + TS + Cloudscape (D75/D76) contra la API** | ⏳ **EN CURSO** (8.6–8.9 pendientes) | [08-frontend.md](08-frontend.md) |
 | 9 | Cognito (autenticación; autorizador JWT del HTTP API) | [PENDIENTE] | — |
 | 10 | CloudWatch: métricas, alarmas, debugging, manejo de errores centralizado | [PENDIENTE] | — |
 | 11 | boto3 + Security Checks read-only → findings → score → dashboard | [PENDIENTE] | — |
@@ -52,7 +52,7 @@ Orden original 0–16. **Cambio acordado:** Lambda pasó a ser la Etapa 4 y API 
 **Etapas 7 a 16**
 
 9. ✅ Etapa 7 — IAM: inventario, 5 hallazgos con severidad, D56–D58 aplicados y verificados, checkpoint 5/5, [07-iam.md](07-iam.md).
-10. Etapa 8 — frontend SPA (React + Vite + TypeScript + Tailwind + shadcn/ui, [ADR-006](architecture-decisions/006-frontend-spa.md)) bajo `/app`: dashboard por estado y severidad, tabla de controles con filtros, crear/editar/borrar/cambiar estado; proxy de Vite para desarrollo; CloudFront configurado para rutas de SPA; deploy desde CloudShell; job de frontend en el CI.
+10. Etapa 8 (⏳ en curso) — frontend SPA con React + Vite + TypeScript + Cloudscape Design System (D75, teal como acento D76; [ADR-006](architecture-decisions/006-frontend-spa.md)) bajo `/app`: dashboard por estado y severidad, tabla de controles con filtros, crear/editar/borrar/cambiar estado; proxy de Vite para desarrollo; CloudFront configurado para rutas de SPA; deploy desde CloudShell; job de frontend en el CI. Pendientes: 8.6 job de frontend en el CI, 8.7 error pages de CloudFront, 8.8 deploy desde CloudShell y 8.9 verificación en el navegador/checkpoint (ver [08-frontend.md §5](08-frontend.md)).
 11. Etapa 9 — Cognito User Pool + autorizador JWT en el HTTP API.
 12. Etapa 10 — CloudWatch: métricas (*Errors*, *Throttles*, *Duration*), alarmas (verificar costo), manejo de errores centralizado, logs estructurados.
 13. Etapa 11 — checks read-only con boto3 (empezar por S3 Block Public Access, S3 Encryption, CloudTrail habilitado) → tabla de findings → score → dashboard. Diseñar la tabla de findings (requisito: consultar por `control_id` de forma eficiente). Decidir `SecurityAudit` vs. policy propia. Decidir qué regiones evalúa cada check.
@@ -64,13 +64,17 @@ Orden original 0–16. **Cambio acordado:** Lambda pasó a ser la Etapa 4 y API 
 
 ### Alcance de la Etapa 13 (decidido el 2026-10-15)
 
-El prompt original ponía GitHub Actions + CI/CD + OIDC **en la V1**; el documento de evolución, **en el Bloque B**. Se eligió la **opción A** (D59): CI **sin credenciales de AWS** en la V1 (tests, chequeos y `cdk synth`); deploy automático y OIDC en el Bloque B. Una primera parte se adelantó como **Etapa 13a** (D60), antes del frontend: tests unitarios sin AWS + chequeo de identificadores reales. Después de la 13a, actualizar la URL del remoto local a `openaegis` y, con aprobación del usuario, mover las memorias de Engram al nuevo nombre de proyecto.
+El prompt original ponía GitHub Actions + CI/CD + OIDC **en la V1**; el documento de evolución, **en el Bloque B**. Se eligió la **opción A** (D59): CI **sin credenciales de AWS** en la V1 (tests, chequeos y `cdk synth`); deploy automático y OIDC en el Bloque B. Una primera parte se adelantó como **Etapa 13a** (D60), antes del frontend: tests unitarios sin AWS + chequeo de identificadores reales. El remoto local y el proyecto de Engram ya quedaron en `openaegis` (2026-10-15).
 
 ### Checkpoint final: "V1 → V2 Architecture Review"
 
 Al completar la V1, antes de cualquier trabajo del Bloque B: (1) arquitectura final de la V1, (2) qué se aprendió, (3) security checks existentes, (4) modelo de findings, (5) IAM, (6) CDK, (7) GitHub Actions, (8) costos, (9) documentación, (10) qué se reutiliza, (11) qué tiene que evolucionar, (12) diseño de la arquitectura V2. Temas a evaluar en esa revisión: **multi-cuenta** (cross-account roles con ExternalId; ⚠️ lo habitual es con AWS Organizations, que en el Free plan haría perder los créditos), **SaaS multi-tenant** (solo con un motivo real) y una **CLI** que reutilice los checks [PROPUESTA].
 
 ---
+
+## Dirección de producto [PROPUESTA, 2026-10-17]
+
+El usuario plantea un modelo **open-core**: la V1 sería la edición **Community** (open source, self-hosted en la cuenta de cada usuario) y más adelante una edición con más funciones que corra en servidores o contenedores (multi-cuenta, SSO, roles, scans programados, notificaciones, reportes, remediación de la V2…), como SaaS, self-hosted comercial o ambas. **No se decide ni se construye ahora**: se evalúa en la revisión V1 → V2, junto con la licencia. El Bloque B (Docker, ECS, CI/CD) es el camino técnico natural de esa edición.
 
 ## Bloque B — Evolución Cloud / DevSecOps (NO implementar todavía)
 

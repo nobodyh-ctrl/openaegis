@@ -53,7 +53,7 @@ El CI corre **después** del push: **detecta** pero no impide. Si un ID real lle
 | Control | Cuándo actúa | Estado |
 |---|---|---|
 | CI | Después del push | ✅ |
-| Branch protection / rulesets (exigir CI en verde para *merge*) | Al mergear un pull request | Mejora posible |
+| Branch protection / rulesets (exigir CI en verde para *merge*) | Al mergear un pull request | ✅ (D74, 2026-10-17) |
 | Pre-commit hook con el mismo script | Antes de crear el commit, en la PC | Mejora posible |
 
 ### 2.5 Qué se puede testear sin AWS (gracias al refactor de la Etapa 6)
@@ -93,7 +93,7 @@ Un test de regresión tiene que fallar con `FAIL` y un mensaje que explique qué
 |---|---|
 | [`tests/test_validation.py`](../tests/test_validation.py) | 21 tests: modo `POST` (obligatorios, tipos, largos, enums, allowlist), modo `PATCH` (solo lo que vino, sin defaults, regresión del `title` vacío) y `validate_control_id` |
 | [`tests/test_responses.py`](../tests/test_responses.py) | 9 tests: formato de API Gateway, `Decimal`, `parse_json_body` (regresión de `[]` → 500) |
-| [`tests/test_check_identifiers.py`](../tests/test_check_identifiers.py) | 9 tests: detecta lo real y deja pasar marcadores, UUIDs, fechas y SHAs. Los valores de ejemplo se arman concatenando para no dispararse a sí mismos |
+| [`tests/test_check_identifiers.py`](../tests/test_check_identifiers.py) | 12 tests: detecta lo real y deja pasar marcadores, UUIDs, fechas y SHAs. Los valores de ejemplo se arman concatenando para no dispararse a sí mismos |
 | [`scripts/check_identifiers.py`](../scripts/check_identifiers.py) | Recorre `git ls-files` (y el XML embebido en los `.drawio.png`); `exit 1` si encuentra algo |
 | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | El workflow |
 
@@ -140,11 +140,11 @@ python scripts/check_identifiers.py
 
 | Qué | Resultado |
 |---|---|
-| Tests locales | 39 OK |
+| Tests locales | 42 OK |
 | Chequeo local sobre el repo | OK |
 | Chequeo local ante un ID falso (archivo temporal, después borrado) | `exit 1`, valor enmascarado |
 | **Mutación local:** se reintrodujo el bug del `PATCH` en una **copia** de `backend/` | 2 `FAIL` en `test_obligatorio_vacio_se_rechaza_tambien_en_patch`: los tests lo detectan |
-| Primer run en GitHub (commit `be39098`) | ✅ 4 pasos en verde, `Ran 39 tests ... OK`, 35 archivos sin identificadores |
+| Primer run en GitHub (commit `be39098`) | ✅ 4 pasos en verde, `Ran 39 tests ... OK` (en ese commit; hoy son 42), 35 archivos sin identificadores |
 | Ver fallar el CI **en GitHub** (branch descartable) | ⏭️ **Salteado** por decisión del usuario. La mutación local reemplaza la parte de los tests; que GitHub marque ❌ ante un `exit 1` no se verificó en la práctica |
 
 ## 6. Costos
@@ -192,7 +192,7 @@ Si el repo pasara a ser **privado**, el plan gratuito de GitHub incluye 2.000 mi
 
 - **Etapa 12/13:** sumar `cdk synth` cuando exista la infraestructura como código.
 - **Etapa 14:** tests de `controls.py` con un repositorio falso (o moto).
-- **Mejoras posibles, no decididas:** pre-commit hook con el mismo script (preventivo); branch protection o rulesets que exijan el check en verde; ver fallar el CI en GitHub.
+- **Mejoras posibles, no decididas:** pre-commit hook con el mismo script (preventivo); ver fallar el CI en GitHub. El ruleset de `main` que exige el check `checks` ya está implementado (D74, 2026-10-17).
 
 ## 11. Cosas que NO se deben hacer
 

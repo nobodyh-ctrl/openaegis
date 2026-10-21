@@ -1,6 +1,6 @@
 # AGENTS.md — Instrucciones para agentes que trabajen en OpenAegis
 
-> Última actualización: 2026-10-12. Este archivo es la **puerta de entrada** para cualquier sesión nueva (Claude Code, Amazon Q u otro agente). Leelo completo antes de proponer cambios.
+> Última actualización: 2026-10-19. Este archivo es la **puerta de entrada** para cualquier sesión nueva (Claude Code, Amazon Q u otro agente). Leelo completo antes de proponer cambios.
 
 Convenciones de estado usadas en toda la documentación:
 
@@ -18,7 +18,7 @@ Convenciones de estado usadas en toda la documentación:
 
 Aplicación web **serverless en AWS** para **gestionar controles de seguridad cloud** (S3 Block Public Access, cifrado de S3, CloudTrail habilitado, MFA, permisos, logging…) y, más adelante, **ejecutar checks automáticos de solo lectura** con boto3 que generen **findings**.
 
-- Proyecto **educativo y de portfolio**. Empezó como **"Cloud Security Checklist"**; el nombre **OpenAegis** se adoptó el 2026-10-12. El **repo de GitHub se llama `openaegis`** y el remoto local ya apunta ahí (2026-10-15). Los recursos de AWS (`cloud-sec-checklist-*`) y el `frontend/index.html` **siguen usando el nombre viejo**.
+- Proyecto **educativo y de portfolio**. Empezó como **"Cloud Security Checklist"**; el nombre **OpenAegis** se adoptó el 2026-10-12. El **repo de GitHub se llama `openaegis`** y el remoto local ya apunta ahí (2026-10-15). Los recursos de AWS (`cloud-sec-checklist-*`) **siguen usando el nombre viejo**; el `frontend/index.html` ya muestra **OpenAegis**.
 - **No** compite con Prowler, ScoutSuite, Wiz ni Prisma Cloud, y **no** debe presentarse como algo que garantiza la seguridad de una cuenta.
 - **Modelo de despliegue (V1):** self-hosted y single-account. Cada usuario despliega su copia en **su** cuenta y la app evalúa **esa** cuenta. Ver [docs/DECISIONS.md](docs/DECISIONS.md) (D48).
 
@@ -53,15 +53,15 @@ openaegis/
 │   ├── responses.py          ← formato de entrada/salida de API Gateway (payload 2.0)
 │   └── openapi.yaml          ← CONTRATO de la API (OpenAPI 3.1, D69): actualizarlo si cambia el backend
 ├── docs/
-│   ├── 00..07-*.md, 13a-ci-minimo.md  ← un doc por etapa (decisiones D1–D63)
-│   ├── architecture-decisions/  ← ADR-001 a ADR-005 (decisiones grandes)
+│   ├── 00..08-*.md, 13a-ci-minimo.md  ← un doc por etapa
+│   ├── architecture-decisions/  ← ADR-001 a ADR-006 (decisiones grandes)
 │   ├── PROJECT_CONTEXT.md · ARCHITECTURE.md · ROADMAP.md · DECISIONS.md · LEARNING_LOG.md
-├── frontend/                 ← SPA React + Vite + TS + Tailwind + shadcn/ui (Etapa 8, en curso). Dependencias: D68
+├── frontend/                 ← SPA React + Vite + TS + Cloudscape Design System (D75, teal como acento D76; Etapa 8). Dependencias: D68
 │   ├── .npmrc                ← save-exact, ignore-scripts
 │   ├── vite.config.ts        ← alias @/, proxy de desarrollo /api/ (API_PROXY_TARGET en .env.local) y /openapi.yaml
 │   ├── swagger.html          ← Swagger UI SOLO en desarrollo (http://localhost:5173/swagger.html)
 │   ├── public/               ← se copia tal cual a dist/: favicon.svg, apple-touch-icon.png
-│   └── src/                  ← main.tsx (providers), router.tsx, pages/, components/layout, components/ui (shadcn), lib/ (api, theme, query-client, config), styles/
+│   └── src/                  ← main.tsx (providers), router.tsx, pages/, components/ (layout, controls), lib/ (api, use-controls, control-rules, theme, brand-theme, notifications, navigation, query-client, config)
 ├── tests/                    ← tests unitarios con unittest (sin AWS): validation, responses, check_identifiers
 ├── scripts/
 │   └── check_identifiers.py  ← falla si un archivo versionado tiene un ID real (cuenta, API, CloudFront, access key)
@@ -84,14 +84,15 @@ Localmente existe `lambda.zip` (artefacto de deploy, ignorado por `.gitignore`).
 | `DELETE /controls/{id}` | ✅ código [CONFIRMADO-REPO, sin commitear al 2026-10-13] + 6 pruebas con `curl` [CONVERSACIÓN] |
 | Eliminar `POST /hello` (ruta de prueba) | ✅ código, ruta y statement eliminados (verificado 2026-10-13) |
 | IAM auditado (Etapa 7) | ✅ D56–D58 aplicados y verificados (2026-10-15) |
-| CI mínimo (Etapa 13a): 39 tests + chequeo de identificadores | ✅ [CONFIRMADO-REPO] + run verde en GitHub (2026-10-15) |
-| Frontend real, Cognito, CloudWatch avanzado, checks + findings, CDK, `cdk synth` en CI, tests de `controls.py` | [PENDIENTE] (Etapas 8–16) |
+| CI mínimo (Etapa 13a): 42 tests + chequeo de identificadores | ✅ [CONFIRMADO-REPO] + run verde en GitHub (2026-10-15) |
+| Frontend SPA (React + Vite + TS + Cloudscape, D75/D76) | ✅ código [CONFIRMADO-REPO] — implementado y verificado en local; **no desplegado** en AWS (CloudFront sigue sirviendo la página de prueba) |
+| Cognito, CloudWatch avanzado, checks + findings, CDK, `cdk synth` en CI, tests de `controls.py` | [PENDIENTE] (Etapas 9–16) |
 
 Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## 5. Alcance de la V1 (Bloque A)
 
-**Dentro:** CRUD de controles · frontend SPA (React + Vite + TypeScript + Tailwind + shadcn/ui, D65/ADR-006) bajo `/app` para ver, crear, editar, eliminar y cambiar estado · landing en `/` recién cuando el producto se pueda instalar (D66) · Cognito · CloudWatch · checks **read-only** con boto3 → findings → score → dashboard · CDK en Python · tests · documentación · demo.
+**Dentro:** CRUD de controles · frontend SPA (React + Vite + TypeScript + Cloudscape, D75/D76; ADR-006) bajo `/app` para ver, crear, editar, eliminar y cambiar estado · landing en `/` recién cuando el producto se pueda instalar (D66) · Cognito · CloudWatch · checks **read-only** con boto3 → findings → score → dashboard · CDK en Python · tests · documentación · demo.
 
 **Fuera de la V1 (no implementar, no "preparar por las dudas"):** Ansible, Terraform, remediación de cualquier tipo, operaciones de escritura sobre recursos evaluados, EventBridge para remediación, workflows de aprobación, infraestructura vulnerable, Docker/ECS/ECR, SQS, FastAPI, OpenTelemetry, IA. **Nunca, salvo un problema real que lo justifique:** EC2, RDS, NAT Gateway, VPC compleja, load balancers, Kubernetes, Kafka, Redis, service mesh, CQRS, event sourcing, microservicios.
 
@@ -101,7 +102,7 @@ Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 | Ahora (V1, implementado) | V1, pendiente | Futuro (Bloque B, a evaluar) |
 |---|---|---|
-| Python 3.14 (arm64) · AWS Lambda · API Gateway HTTP API · DynamoDB · S3 · CloudFront (OAC) · IAM · CloudWatch Logs · boto3 (incluido en el runtime) | Frontend SPA: React + Vite + TypeScript + Tailwind + shadcn/ui (Etapa 8) · Cognito · CloudWatch métricas/alarmas · checks con boto3 · AWS CDK (Python) · GitHub Actions (alcance por decidir) · moto [PROPUESTA] | Docker · Terraform · ECR · ECS/Fargate · FastAPI · OIDC · OpenTelemetry/X-Ray · SQS · Ansible · Trivy/Bandit/Semgrep/Checkov/ansible-lint · IA para explicar findings · k6 |
+| Python 3.14 (arm64) · AWS Lambda · API Gateway HTTP API · DynamoDB · S3 · CloudFront (OAC) · IAM · CloudWatch Logs · boto3 (incluido en el runtime) | Frontend SPA: React + Vite + TypeScript + Cloudscape (Etapa 8) · Cognito · CloudWatch métricas/alarmas · checks con boto3 · AWS CDK (Python) · GitHub Actions (alcance por decidir) · moto [PROPUESTA] | Docker · Terraform · ECR · ECS/Fargate · FastAPI · OIDC · OpenTelemetry/X-Ray · SQS · Ansible · Trivy/Bandit/Semgrep/Checkov/ansible-lint · IA para explicar findings · k6 |
 
 ## 7. Cómo desplegar y probar (solo lo verificado)
 
@@ -193,7 +194,7 @@ El usuario pidió un **tutor técnico exigente, no un generador de código**. Re
 ## 10. Cómo documentar
 
 - **Un doc por etapa** en `docs/NN-tema.md`, con la estructura de los existentes: objetivo, conceptos, decisiones (`D#`), configuración, verificación, debugging, costos, relación con Cloud Security, cómo revertir, cosas que NO hacer. Con marcadores en lugar de identificadores reales.
-- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D75**), y al doc de su etapa.
+- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D77**), y al doc de su etapa.
 - **ADRs** (`docs/architecture-decisions/NNN-tema.md`, D55): solo para decisiones **grandes**; `DECISIONS.md` es el índice de todas. Formato: Contexto, Decisión, Por qué, Alternativas consideradas, Ventajas, Desventajas, Consideraciones de seguridad, Consideraciones de costo, Consecuencias, Evolución futura (más estado, fecha y decisiones relacionadas). Existen ADR-001 a ADR-006; el siguiente es **007**. Al crear uno, agregarlo a la tabla de `DECISIONS.md`.
 - **README:** contar la evolución, con ventajas **y desventajas**; **solo lo implementado**.
 - Actualizar ROADMAP y ARCHITECTURE cuando algo cambie de estado.
