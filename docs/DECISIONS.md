@@ -1,7 +1,8 @@
 # Decisiones técnicas
 
 > Índice de **todas** las decisiones del proyecto. D1–D31 están desarrolladas en el doc de cada etapa (acá solo el resumen y el enlace). D32–D54 (Etapa 6) están acá con sus alternativas completas y resumidas en [06-dynamodb.md](06-dynamodb.md).
-> **Próximo número libre: D77.** Cada decisión nueva se agrega acá y en el doc de su etapa.
+> **Próximo número libre: D78.** D77 registrado (excepción seguridad, 2026-10-21).
+> Cada decisión nueva se agrega acá y en el doc de su etapa.
 > Las decisiones grandes tienen además un **ADR** completo (D55):
 >
 > | ADR | Tema | Decisiones |
@@ -100,6 +101,7 @@ D32–D54, tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSAC
 | D74 | Flujo de trabajo con ramas | `main` **protegida con un ruleset** (2026-10-17): sin borrado, sin *force push*, todo cambio por **PR** (0 aprobaciones: un solo desarrollador), rama al día con `main` y check requerido **`checks`** (el `name:` del job del CI), sin bypass. Ramas `tipo/descripcion` (`feat/`, `fix/`, `ci/`, `docs/`). El CI corre en `pull_request` y en `push` a `main`. 2026-10-17 | Nada llega a `main` sin pasar el CI; historia de `main` no reescribible | Push directo a `main` (como hasta ahora) |
 | D75 | Librería de componentes del frontend | **Cloudscape Design System** (`@cloudscape-design/*`, Apache-2.0, el sistema de diseño de la consola de AWS) **reemplaza a shadcn/ui + Tailwind**. Se mantiene React + Vite + TS, TanStack Query, el cliente `api.ts`, las reglas de validación y el router. Actualiza [ADR-006](architecture-decisions/006-frontend-spa.md). 2026-10-17 | Producto para usuarios de AWS: el estilo auténtico de la consola (no una imitación); componentes de nivel consola (tabla con filtros y paginación, layout, breadcrumbs). Inspirado en la demo de Refraxion, que usa Cloudscape (se toman patrones, no su marca ni sus textos) | Disfrazar shadcn de AWS (imitación con mucho ajuste manual); dejar la UI como estaba. Contras aceptados: bundle y supply chain más grandes, rehacer las pantallas de 8.3–8.5 |
 | D76 | Color de marca con Cloudscape | **Teal como acento** (theming de Cloudscape) sobre la estética de la consola de AWS; reemplaza el tema propio de D71. 2026-10-17 | Identidad propia sin dejar de parecer AWS | Azul AWS por defecto |
+| D77 | Excepción a D68: `vite` 8.3.5 subido antes de los 14 días | Fix de seguridad HIGH (`launch-editor`, GHSA-698v-4r3x-3vcv; publicado 2026-10-21). Aceptado con evidencia (audit 0 vulnerabilidades tras upgrade); se documenta en `DECISIONS.md` y `odd/tasks/ci-frontend.md`. No afecta release ni producción (dev-only dependency, solo en build/CI). | Seguridad confirmada con el upgrade; sin dependencia de versiones no verificadas | — |
 
 ## Propuestas (no decididas)
 

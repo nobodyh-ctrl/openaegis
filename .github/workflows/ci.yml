@@ -37,3 +37,26 @@ jobs:
 
       - name: Chequeo de identificadores reales
         run: python scripts/check_identifiers.py
+
+      - name: Instalar Node (misma versión que el build de producción)
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias del frontend
+        working-directory: frontend
+        run: npm ci
+
+      - name: Typecheck del frontend
+        working-directory: frontend
+        run: npm run typecheck
+
+      - name: Build del frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Audit de dependencias del frontend
+        working-directory: frontend
+        run: npm audit

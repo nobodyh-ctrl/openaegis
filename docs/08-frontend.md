@@ -442,7 +442,7 @@ Detalles de la verificación: la grilla de Cloudscape usa puntos de corte sobre 
 | 8.4 | Página Controles (tabla, filtros, CRUD, estados, notificaciones) | No | ✅ 2026-10-17 (interacciones: verificación manual pendiente) |
 | 8.5 | Dashboard + carga de páginas bajo demanda | No | ✅ 2026-10-17 |
 | 8.5b | Migración a Cloudscape y rediseño de la UI (D75/D76) | No | ✅ 2026-10-17 |
-| 8.6 | Job de frontend en el CI | No | Pendiente |
+| 8.6 | Job de frontend en el CI (`npm ci`, `typecheck`, `build`, `audit`) | ✅ (2026-10-21) | Agregado al `checks`; `npm audit` pasa tras subir `vite` 8.3.2 → 8.3.5 (excepción D77, fix HIGH, publicado hoy). Ver `feat/ci-frontend-job`. |
 | 8.7 | CloudFront: error pages (D67) | Sí (configuración, sin costo) | Pendiente |
 | 8.8 | Deploy desde CloudShell (build, `s3 sync` con caché, invalidación) | Sí (escritura en S3) | Pendiente |
 | 8.9 | Verificación en el navegador, checkpoint y cierre de este doc | — | Pendiente |
