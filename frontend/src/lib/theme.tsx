@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { applyMode, Mode } from "@cloudscape-design/global-styles";
 
 /**
- * Tema claro/oscuro (D71: oscuro por defecto). El tema activo es la clase "dark" en <html>:
- * todas las variables de color de index.css cambian juntas. La elección se recuerda en
- * localStorage, que puede no estar disponible (modo privado, bloqueos): por eso el try/catch.
+ * Tema claro/oscuro (oscuro por defecto). Con Cloudscape (D75), el modo se aplica con applyMode(),
+ * que agrega la clase "awsui-dark-mode" en <body>. La elección se recuerda en localStorage
+ * (puede no estar disponible: por eso el try/catch).
  */
 export type Theme = "dark" | "light";
 
@@ -19,6 +20,7 @@ function readStoredTheme(): Theme {
 
 interface ThemeContextValue {
   theme: Theme;
+  setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
 }
 
@@ -28,7 +30,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(readStoredTheme);
 
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
+    applyMode(theme === "dark" ? Mode.Dark : Mode.Light); // en <body>, donde Cloudscape define los colores
     try {
       localStorage.setItem(STORAGE_KEY, theme);
     } catch {
@@ -38,7 +40,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const toggleTheme = useCallback(() => setTheme((t) => (t === "dark" ? "light" : "dark")), []);
 
-  return <ThemeContext.Provider value={{ theme, toggleTheme }}>{children}</ThemeContext.Provider>;
+  return <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme(): ThemeContextValue {
