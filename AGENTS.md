@@ -77,7 +77,7 @@ Localmente existe `lambda.zip` (artefacto de deploy, ignorado por `.gitignore`).
 | Parte | Estado |
 |---|---|
 | Cuenta AWS segura + control de costos (Etapa 0) | ✅ [CONVERSACIÓN] |
-| S3 privado + CloudFront con OAC (Etapas 2–3) | ✅ [CONVERSACIÓN] — sirve un `index.html` de prueba; error pages 403/404 → `/index.html` con 200 para las rutas de la SPA (paso 8.7, D67, 2026-10-21) |
+| S3 privado + CloudFront con OAC (Etapas 2–3) | ✅ [CONVERSACIÓN] — sirve el build de la SPA (paso 8.8, D79); error pages 403/404 → `/index.html` con 200 para las rutas de la SPA (paso 8.7, D67, 2026-10-21) |
 | Lambda `cloud-sec-checklist-api` (Etapa 4) | ✅ [CONVERSACIÓN] |
 | HTTP API con throttling y CORS (Etapa 5) | ✅ [CONVERSACIÓN] |
 | Tabla DynamoDB `cloud-sec-checklist-controls` (Etapa 6) | ✅ [CONVERSACIÓN] |
@@ -88,7 +88,7 @@ Localmente existe `lambda.zip` (artefacto de deploy, ignorado por `.gitignore`).
 | IAM auditado (Etapa 7) | ✅ D56–D58 aplicados y verificados (2026-10-15) |
 | CI mínimo (Etapa 13a): 42 tests + chequeo de identificadores | ✅ [CONFIRMADO-REPO] + run verde en GitHub (2026-10-15) |
 | Job de frontend en el CI (paso 8.6): `npm ci`, typecheck, build, `npm audit` | ✅ [CONFIRMADO-REPO] + PR #5 mergeado con `checks` en verde (2026-10-21) |
-| Frontend SPA (React + Vite + TS + Cloudscape, D75/D76) | ✅ código [CONFIRMADO-REPO] — implementado y verificado en local; **no desplegado** en AWS (CloudFront sigue sirviendo la página de prueba) |
+| Frontend SPA (React + Vite + TS + Cloudscape, D75/D76) | ✅ código [CONFIRMADO-REPO] — implementado y verificado en local; **desplegado** en CloudFront el 2026-10-21 (paso 8.8, D79) [CONVERSACIÓN] |
 | Cognito, CloudWatch avanzado, checks + findings, CDK, `cdk synth` en CI, tests de `controls.py` | [PENDIENTE] (Etapas 9–16) |
 
 Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
@@ -197,7 +197,7 @@ El usuario pidió un **tutor técnico exigente, no un generador de código**. Re
 ## 10. Cómo documentar
 
 - **Un doc por etapa** en `docs/NN-tema.md`, con la estructura de los existentes: objetivo, conceptos, decisiones (`D#`), configuración, verificación, debugging, costos, relación con Cloud Security, cómo revertir, cosas que NO hacer. Con marcadores en lugar de identificadores reales.
-- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D79**), y al doc de su etapa.
+- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D80**), y al doc de su etapa.
 - **ADRs** (`docs/architecture-decisions/NNN-tema.md`, D55): solo para decisiones **grandes**; `DECISIONS.md` es el índice de todas. Formato: Contexto, Decisión, Por qué, Alternativas consideradas, Ventajas, Desventajas, Consideraciones de seguridad, Consideraciones de costo, Consecuencias, Evolución futura (más estado, fecha y decisiones relacionadas). Existen ADR-001 a ADR-006; el siguiente es **007**. Al crear uno, agregarlo a la tabla de `DECISIONS.md`.
 - **README:** contar la evolución, con ventajas **y desventajas**; **solo lo implementado**.
 - Actualizar ROADMAP y ARCHITECTURE cuando algo cambie de estado.
