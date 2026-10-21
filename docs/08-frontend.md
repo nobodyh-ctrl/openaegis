@@ -292,7 +292,7 @@ Decisiones de diseño del cliente:
 
 **Por qué el servidor de producción no funciona desde Swagger:** primero, su variable `apiId` vale el marcador `<api-id>` (el contrato es público). Pero aunque se ponga el ID real, la request la hace **el navegador** directo desde `localhost:5173` a la API, y CORS solo autoriza el dominio de CloudFront: el navegador la bloquea (*"Failed to fetch"*). El `curl` que muestra Swagger, en cambio, funciona en una terminal: quien llama es un programa. Para probar desde Swagger se usa el servidor `/api` (el proxy). La entrada de producción queda **solo como referencia**, y su descripción lo aclara.
 
-**Pendiente (paso 8.6):** lintear el contrato en el CI. Más adelante (Etapa 14): generar los tipos del frontend desde el contrato y verificar que el backend lo respeta.
+**Pendiente:** lintear el contrato en el CI. Estaba previsto para el paso 8.6, pero **no se incluyó** (el 8.6 cubrió `npm ci`, `typecheck`, `build` y `audit`); queda [PENDIENTE], sin etapa asignada. Más adelante (Etapa 14): generar los tipos del frontend desde el contrato y verificar que el backend lo respeta.
 
 ### 4.4 Paso 8.3 — Layout, rutas y tema (2026-10-17)
 
@@ -431,6 +431,10 @@ Detalles de la verificación: la grilla de Cloudscape usa puntos de corte sobre 
 
 **Verificación:** build y tipos OK, `npm audit` 0, 42 tests y chequeo de identificadores OK; Chrome headless: Dashboard en oscuro y claro, Controles y el formulario de alta. **No verificado automáticamente:** el panel de detalle (requiere seleccionar una fila) y el flujo completo de alta, edición y borrado.
 
+### 4.9 Paso 8.6 — Job de frontend en el CI (2026-10-21, rama `feat/ci-frontend-job`, PR #5)
+
+El job `checks` (el que exige el ruleset de `main`, D74) suma `npm ci`, `npm run typecheck`, `npm run build` y `npm audit` (bloqueante). Para que el `audit` pasara se subió `vite` 8.3.2 → 8.3.5, publicado ese mismo día: excepción a D68 registrada como **D77**. Configuración y motivos: [13a-ci-minimo.md §4.6](13a-ci-minimo.md).
+
 ## 5. Plan de la etapa
 
 | Paso | Qué | Toca AWS | Estado |
@@ -442,7 +446,7 @@ Detalles de la verificación: la grilla de Cloudscape usa puntos de corte sobre 
 | 8.4 | Página Controles (tabla, filtros, CRUD, estados, notificaciones) | No | ✅ 2026-10-17 (interacciones: verificación manual pendiente) |
 | 8.5 | Dashboard + carga de páginas bajo demanda | No | ✅ 2026-10-17 |
 | 8.5b | Migración a Cloudscape y rediseño de la UI (D75/D76) | No | ✅ 2026-10-17 |
-| 8.6 | Job de frontend en el CI (`npm ci`, `typecheck`, `build`, `audit`) | ✅ (2026-10-21) | Agregado al `checks`; `npm audit` pasa tras subir `vite` 8.3.2 → 8.3.5 (excepción D77, fix HIGH, publicado hoy). Ver `feat/ci-frontend-job`. |
+| 8.6 | Job de frontend en el CI (`npm ci`, `typecheck`, `build`, `audit`) | No | ✅ 2026-10-21 (PR #5): extiende el job `checks`; `vite` 8.3.2 → 8.3.5 por un fix HIGH (excepción D77). Detalle en [13a §4.6](13a-ci-minimo.md) |
 | 8.7 | CloudFront: error pages (D67) | Sí (configuración, sin costo) | Pendiente |
 | 8.8 | Deploy desde CloudShell (build, `s3 sync` con caché, invalidación) | Sí (escritura en S3) | Pendiente |
 | 8.9 | Verificación en el navegador, checkpoint y cierre de este doc | — | Pendiente |
