@@ -26,3 +26,6 @@ Thumbs.db
 # --- Frontend (Node) ---
 node_modules/
 dist/
+
+# --- Configuración local de agentes (Claude Code) ---
+.claude/

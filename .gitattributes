@@ -1,0 +1,6 @@
+# Finales de línea: LF en el repo y en el disco, en cualquier sistema operativo.
+# Evita que Windows (CRLF) haga aparecer archivos "modificados" sin cambios reales (D78).
+* text=auto eol=lf
+
+# Binarios: git no los toca.
+*.png binary
