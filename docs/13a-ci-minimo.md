@@ -136,6 +136,22 @@ python -m unittest discover -s tests -v
 python scripts/check_identifiers.py
 ```
 
+### 4.6 Ampliación del job `checks` con el frontend (2026-10-21, paso 8.6)
+
+El job `checks` (el que exige el ruleset de `main`, D74) también verifica el frontend. Se **extendió** en vez de crear un workflow aparte: un solo nombre de check significa un solo estado en el PR y ningún cambio en el ruleset.
+
+```yaml
+actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0   node-version: "24" + cache npm
+npm ci                # instala exactamente el package-lock.json
+npm run typecheck     # tsc --noEmit
+npm run build         # tsc --noEmit && vite build
+npm audit             # falla el pipeline si hay vulnerabilidades
+```
+
+- `cache: "npm"` con `cache-dependency-path: frontend/package-lock.json`: el runner guarda la caché de npm entre corridas.
+- El `audit` **es bloqueante**: por diseño, una vulnerabilidad alta debe romper el CI.
+- `vite` 8.3.2 → **8.3.5**: el `audit` detectaba 1 vulnerabilidad *high* (`launch-editor`, GHSA-698v-4r3x-3vcv, ejecución de comandos en Windows al abrir el editor desde el server de dev). 8.3.5 se publicó el 2026-10-21, es decir **menos de 14 días antes**: es una **excepción a D68**, documentada como **D77** en [DECISIONS.md](DECISIONS.md). Es una dependencia de desarrollo: no llega al bundle que se despliega.
+
 ## 5. Verificación
 
 | Qué | Resultado |
