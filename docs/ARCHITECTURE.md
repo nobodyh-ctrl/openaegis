@@ -46,7 +46,7 @@ Todos creados **a mano en la consola**, con tag `Project = cloud-security-checkl
 | Recurso | Configuración relevante | Doc |
 |---|---|---|
 | S3 `cloud-sec-checklist-frontend-<sufijo>` | Privado, BPA 4/4, ACLs desactivadas (*bucket owner enforced*), SSE-S3, sin versioning, sin Object Lock | [02-s3.md](02-s3.md) |
-| CloudFront `cloud-sec-checklist-frontend` | Pay-as-you-go, OAC, bucket policy con `AWS:SourceArn` = la distribución, redirect HTTP→HTTPS, default root object `index.html`, dominio `<distribucion>.cloudfront.net`, sin WAF, sin logging | [03-cloudfront.md](03-cloudfront.md) |
+| CloudFront `cloud-sec-checklist-frontend` | Pay-as-you-go, OAC, bucket policy con `AWS:SourceArn` = la distribución, redirect HTTP→HTTPS, default root object `index.html`, error pages 403/404 → `/index.html` con 200 (D67, paso 8.7), dominio `<distribucion>.cloudfront.net`, sin WAF, sin logging | [03-cloudfront.md](03-cloudfront.md) |
 | Lambda `cloud-sec-checklist-api` | Python 3.14, arm64, 128 MB, timeout 3 s, sin Function URL, sin VPC, handler `handler.lambda_handler`, env `TABLE_NAME=cloud-sec-checklist-controls` | [04-lambda.md](04-lambda.md) |
 | Execution role `cloud-sec-checklist-api-role-<sufijo>` | Trust: `lambda.amazonaws.com`. Policy de logs creada por la consola + inline **`controls-table-crud`** (ver §5) | [04-lambda.md](04-lambda.md) |
 | Log group `/aws/lambda/cloud-sec-checklist-api` | Retención 1 semana | [04-lambda.md](04-lambda.md) |

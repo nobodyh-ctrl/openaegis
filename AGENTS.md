@@ -77,7 +77,7 @@ Localmente existe `lambda.zip` (artefacto de deploy, ignorado por `.gitignore`).
 | Parte | Estado |
 |---|---|
 | Cuenta AWS segura + control de costos (Etapa 0) | ✅ [CONVERSACIÓN] |
-| S3 privado + CloudFront con OAC (Etapas 2–3) | ✅ [CONVERSACIÓN] — sirve un `index.html` de prueba |
+| S3 privado + CloudFront con OAC (Etapas 2–3) | ✅ [CONVERSACIÓN] — sirve un `index.html` de prueba; error pages 403/404 → `/index.html` con 200 para las rutas de la SPA (paso 8.7, D67, 2026-10-21) |
 | Lambda `cloud-sec-checklist-api` (Etapa 4) | ✅ [CONVERSACIÓN] |
 | HTTP API con throttling y CORS (Etapa 5) | ✅ [CONVERSACIÓN] |
 | Tabla DynamoDB `cloud-sec-checklist-controls` (Etapa 6) | ✅ [CONVERSACIÓN] |

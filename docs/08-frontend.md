@@ -435,6 +435,34 @@ Detalles de la verificación: la grilla de Cloudscape usa puntos de corte sobre 
 
 El job `checks` (el que exige el ruleset de `main`, D74) suma `npm ci`, `npm run typecheck`, `npm run build` y `npm audit` (bloqueante). Para que el `audit` pasara se subió `vite` 8.3.2 → 8.3.5, publicado ese mismo día: excepción a D68 registrada como **D77**. Configuración y motivos: [13a-ci-minimo.md §4.6](13a-ci-minimo.md).
 
+### 4.10 Paso 8.7 — Error pages de CloudFront (2026-10-21, D67)
+
+**Problema:** las rutas de la SPA (`/app/controles`, `/app/controles/<id>/editar`) solo existen en React Router. Al recargar o entrar por un link directo, CloudFront le pide a S3 una clave que no existe y, como CloudFront tiene `s3:GetObject` pero **no** `s3:ListBucket` (Etapa 3), S3 responde **403** en lugar de 404 para no permitir la enumeración. Resultado: la SPA nunca carga.
+
+**Configuración** [CONVERSACIÓN] (consola → CloudFront → `cloud-sec-checklist-frontend` → *Error pages* → *Create custom error response*), dos respuestas iguales:
+
+| HTTP error code | Response page path | HTTP Response code | Error caching minimum TTL | Por qué |
+|---|---|---|---|---|
+| 403 | `/index.html` | 200 | 10 s | Es lo que S3 devuelve hoy ante un objeto inexistente |
+| 404 | `/index.html` | 200 | 10 s | Defensa en profundidad: si CloudFront tuviera `ListBucket`, S3 pasaría a responder 404 |
+
+El código de respuesta tiene que ser **200**: con 403 el navegador recibe la app junto con un error.
+
+**Evidencia** (CloudShell, `curl -sI` y `aws cloudfront get-distribution-config --id <distribution-id> --query 'DistributionConfig.CustomErrorResponses'`):
+
+| Prueba | Antes | Después |
+|---|---|---|
+| `GET /` | `HTTP/2 200` | `HTTP/2 200` |
+| `GET /app/controles` | `HTTP/2 403` | `HTTP/2 200`, con el `index.html` de prueba en el body (el build real llega en la 8.8) |
+| `GET /no-existe.js` → `content-type` | — | `text/html`: la desventaja aceptada en ADR-006 |
+| `CustomErrorResponses` | `Quantity: 0` | `Quantity: 2` (403 y 404 → `/index.html`, 200, TTL 10) |
+
+**Consecuencias:** para CloudFront ya no hay 404. Cualquier ruta inexistente devuelve la app con 200; "No encontrado" lo resuelve React (`NotFoundPage`), y un control inexistente lo resuelve la API (404 de `GET /controls/{id}`). Sigue sin poder enumerarse el contenido del bucket. **Costo:** USD 0 (configuración gratuita; cada respuesta es una request normal de CloudFront).
+
+**Cómo revertir:** *Error pages* → seleccionar cada respuesta → *Delete*. Verificación: `curl -sI <distribucion>/app/controles` vuelve a dar 403.
+
+**Debugging en el camino:** en CloudShell, los marcadores `<distribucion>` y `<distribution-id>` hay que reemplazarlos enteros (bash lee `<` como redirección). El **ID** de la distribución (`E...`, va en `--id`) y el **dominio** (`d....cloudfront.net`, va en `curl`) son datos distintos: el ID en el `curl` no resuelve DNS y, con `-s`, curl no muestra el error (usar `-sS`); el dominio en `--id` da `Id format is invalid`. Para no confundirlos: `DIST=<distribution-id>` y `CF=https://$(aws cloudfront get-distribution --id $DIST --query 'Distribution.DomainName' --output text)`.
+
 ## 5. Plan de la etapa
 
 | Paso | Qué | Toca AWS | Estado |
@@ -447,6 +475,6 @@ El job `checks` (el que exige el ruleset de `main`, D74) suma `npm ci`, `npm run
 | 8.5 | Dashboard + carga de páginas bajo demanda | No | ✅ 2026-10-17 |
 | 8.5b | Migración a Cloudscape y rediseño de la UI (D75/D76) | No | ✅ 2026-10-17 |
 | 8.6 | Job de frontend en el CI (`npm ci`, `typecheck`, `build`, `audit`) | No | ✅ 2026-10-21 (PR #5): extiende el job `checks`; `vite` 8.3.2 → 8.3.5 por un fix HIGH (excepción D77). Detalle en [13a §4.6](13a-ci-minimo.md) |
-| 8.7 | CloudFront: error pages (D67) | Sí (configuración, sin costo) | Pendiente |
+| 8.7 | CloudFront: error pages (D67) | Sí (configuración, sin costo) | ✅ 2026-10-21: 403 y 404 → `/index.html` con 200; `/app/controles` pasó de 403 a 200. Detalle en §4.10 |
 | 8.8 | Deploy desde CloudShell (build, `s3 sync` con caché, invalidación) | Sí (escritura en S3) | Pendiente |
 | 8.9 | Verificación en el navegador, checkpoint y cierre de este doc | — | Pendiente |
