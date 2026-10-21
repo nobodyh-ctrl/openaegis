@@ -1,7 +1,7 @@
 # Decisiones técnicas
 
 > Índice de **todas** las decisiones del proyecto. D1–D31 están desarrolladas en el doc de cada etapa (acá solo el resumen y el enlace). D32–D54 (Etapa 6) están acá con sus alternativas completas y resumidas en [06-dynamodb.md](06-dynamodb.md).
-> **Próximo número libre: D78.** D77 registrado (excepción seguridad, 2026-10-21).
+> **Próximo número libre: D79.** D78 registrado (finales de línea, 2026-10-21).
 > Cada decisión nueva se agrega acá y en el doc de su etapa.
 > Las decisiones grandes tienen además un **ADR** completo (D55):
 >
@@ -102,6 +102,7 @@ D32–D54, tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSAC
 | D75 | Librería de componentes del frontend | **Cloudscape Design System** (`@cloudscape-design/*`, Apache-2.0, el sistema de diseño de la consola de AWS) **reemplaza a shadcn/ui + Tailwind**. Se mantiene React + Vite + TS, TanStack Query, el cliente `api.ts`, las reglas de validación y el router. Actualiza [ADR-006](architecture-decisions/006-frontend-spa.md). 2026-10-17 | Producto para usuarios de AWS: el estilo auténtico de la consola (no una imitación); componentes de nivel consola (tabla con filtros y paginación, layout, breadcrumbs). Inspirado en la demo de Refraxion, que usa Cloudscape (se toman patrones, no su marca ni sus textos) | Disfrazar shadcn de AWS (imitación con mucho ajuste manual); dejar la UI como estaba. Contras aceptados: bundle y supply chain más grandes, rehacer las pantallas de 8.3–8.5 |
 | D76 | Color de marca con Cloudscape | **Teal como acento** (theming de Cloudscape) sobre la estética de la consola de AWS; reemplaza el tema propio de D71. 2026-10-17 | Identidad propia sin dejar de parecer AWS | Azul AWS por defecto |
 | D77 | Excepción a D68: `vite` 8.3.5 subido antes de los 14 días | Fix de seguridad HIGH (`launch-editor`, GHSA-698v-4r3x-3vcv; publicado 2026-10-21). Aceptado con evidencia (audit 0 vulnerabilidades tras upgrade); se documenta en `DECISIONS.md` y `odd/tasks/ci-frontend.md`. No afecta release ni producción (dev-only dependency, solo en build/CI). | Seguridad confirmada con el upgrade; sin dependencia de versiones no verificadas | — |
+| D78 | Finales de línea LF fijados con `.gitattributes` (`* text=auto eol=lf`, `*.png binary`) y `.claude/` en `.gitignore` | El 2026-10-21, 38 archivos aparecieron "modificados" solo por CRLF de Windows (repo en `/mnt/c` usado desde WSL y Windows) y bloquearon un `git switch`. Sin `.gitattributes` ni `core.autocrlf`, la regla dependía de cada máquina. Con el atributo viaja con el repo (también para quien despliegue su copia, D48). | `core.autocrlf` por máquina (no viaja con el repo); no hacer nada (riesgo de commitear un diff de miles de líneas) | — |
 
 ## Propuestas (no decididas)
 
