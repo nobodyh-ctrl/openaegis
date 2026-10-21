@@ -3,7 +3,7 @@
 > Aplicación serverless en AWS para gestionar controles de seguridad cloud y, más adelante, evaluarlos con checks automáticos de solo lectura.
 > Proyecto **educativo y de portfolio**, construido etapa por etapa para entender cada servicio de AWS que usa. *(Antes: "Cloud Security Checklist".)*
 
-**Estado:** V1 en desarrollo. Etapas 0–7 completas (CRUD de controles funcionando y permisos auditados) + CI mínimo; la Etapa 8 (frontend) está **en curso**: la SPA con Cloudscape está implementada y **desplegada** en S3 + CloudFront; falta la verificación final (8.9). Ver [Roadmap](#roadmap).
+**Estado:** V1 en desarrollo. Etapas 0–8 completas (CRUD de controles, permisos auditados y frontend SPA con Cloudscape desplegado en S3 + CloudFront) + CI mínimo. Sigue la Etapa 9 (Cognito). Ver [Roadmap](#roadmap).
 
 ---
 
@@ -130,7 +130,7 @@ Cada doc de etapa tiene su sección **"Cómo revertir esta etapa"**. Orden suger
 
 ## Roadmap
 
-**V1 (en curso):** cuenta segura → S3 → CloudFront → Lambda → API Gateway → DynamoDB → IAM → **frontend (en curso)** → Cognito → CloudWatch → checks read-only + findings + score → CDK → CI → tests → documentación → demo.
+**V1 (en curso):** cuenta segura → S3 → CloudFront → Lambda → API Gateway → DynamoDB → IAM → frontend → **Cognito (siguiente)** → CloudWatch → checks read-only + findings + score → CDK → CI → tests → documentación → demo.
 
 **Después de la V1:** una revisión de arquitectura V1 → V2 y una evolución progresiva hacia Cloud/DevSecOps (containers, Terraform, CI/CD con OIDC, observabilidad, remediación controlada). Cada tecnología se agrega solo si resuelve un problema concreto.
 
