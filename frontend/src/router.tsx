@@ -13,6 +13,8 @@ export const router = createBrowserRouter([
     children: [
       { index: true, lazy: async () => ({ Component: (await import("@/pages/DashboardPage")).DashboardPage }) },
       { path: "controles", lazy: async () => ({ Component: (await import("@/pages/ControlsPage")).ControlsPage }) },
+      { path: "controles/nuevo", lazy: async () => ({ Component: (await import("@/pages/ControlFormPage")).ControlFormPage }) },
+      { path: "controles/:id/editar", lazy: async () => ({ Component: (await import("@/pages/ControlFormPage")).ControlFormPage }) },
       { path: "*", element: <NotFoundPage /> },
     ],
   },

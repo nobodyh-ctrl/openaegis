@@ -47,3 +47,17 @@ export function useDeleteControl() {
     onSettled: () => qc.invalidateQueries({ queryKey: CONTROLS_KEY }),
   });
 }
+
+/**
+ * Un control por id. Si la lista ya está en la caché, se usa ese dato de inmediato (sin request);
+ * si se entra por un link directo (/app/controles/<id>/editar), se pide GET /controls/{id}.
+ */
+export function useControl(id: string | undefined) {
+  const qc = useQueryClient();
+  return useQuery({
+    queryKey: ["controls", id],
+    queryFn: async () => (await api.getControl(id!)).item,
+    enabled: Boolean(id),
+    initialData: () => qc.getQueryData<ControlsData>(CONTROLS_KEY)?.items.find((c) => c.id === id),
+  });
+}

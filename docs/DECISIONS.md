@@ -1,7 +1,7 @@
 # Decisiones técnicas
 
 > Índice de **todas** las decisiones del proyecto. D1–D31 están desarrolladas en el doc de cada etapa (acá solo el resumen y el enlace). D32–D54 (Etapa 6) están acá con sus alternativas completas y resumidas en [06-dynamodb.md](06-dynamodb.md).
-> **Próximo número libre: D75.** Cada decisión nueva se agrega acá y en el doc de su etapa.
+> **Próximo número libre: D77.** Cada decisión nueva se agrega acá y en el doc de su etapa.
 > Las decisiones grandes tienen además un **ADR** completo (D55):
 >
 > | ADR | Tema | Decisiones |
@@ -11,7 +11,7 @@
 > | [ADR-003](architecture-decisions/003-http-api.md) | API Gateway HTTP API | D22, D26–D31, D41, D42 |
 > | [ADR-004](architecture-decisions/004-dynamodb.md) | DynamoDB on-demand | D32–D45, D50, D53, D54 |
 > | [ADR-005](architecture-decisions/005-deployment-model.md) | Modelo de despliegue self-hosted single-account | D48, D2, D64 |
-> | [ADR-006](architecture-decisions/006-frontend-spa.md) | Frontend SPA (React + Vite + TS) en S3 + CloudFront | D64–D66 |
+> | [ADR-006](architecture-decisions/006-frontend-spa.md) | Frontend SPA (React + Vite + TS) en S3 + CloudFront | D64–D66, D75, D76 |
 
 ## D1–D31 (documentadas por etapa)
 
@@ -49,9 +49,9 @@
 | D30 | Frontend y API en orígenes distintos | [05](05-api-gateway.md#3-decisiones-técnicas) |
 | D31 | Logs con método, path y request IDs; nunca el event completo | [05](05-api-gateway.md#3-decisiones-técnicas) |
 
-## D32 en adelante (Etapa 6 y posteriores; todavía no están en un doc de etapa)
+## D32 en adelante (Etapa 6 y posteriores)
 
-Todas tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSACIÓN].
+D32–D54, tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSACIÓN]; las demás indican su fecha en cada fila.
 
 | # | Tema | Decisión | Por qué | Alternativas descartadas |
 |---|---|---|---|---|
@@ -88,16 +88,18 @@ Todas tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSACIÓN]
 | D62 | CI · fugas de identificadores | Script **propio** `scripts/check_identifiers.py` (sin dependencias): cuenta, API, CloudFront, access keys; revisa también el XML de los `.drawio.png`; **enmascara** lo que encuentra. 2026-10-15 | Sin *supply chain* extra; distingue los marcadores del proyecto; los logs de un repo público son públicos | gitleaks, trufflehog (contra: dependencia externa; a favor: más patrones) |
 | D63 | CI · permisos del pipeline | `permissions: contents: read`, `persist-credentials: false`, `timeout-minutes: 5`, Python 3.14 (igual que la Lambda). 2026-10-15 | Least privilege aplicado al CI; probar con la misma versión que producción | Valores por defecto |
 | D64 | Modelo de cuentas (reafirma D48) | V1 **self-hosted**: "conectar la cuenta" es desplegar en ella; **no hay flujo de conexión** en el frontend. La UI muestra la cuenta y la región evaluadas como concepto visible (el ID de cuenta, recién con Cognito). El modelo **SaaS** (rol cross-account vía CloudFormation + ExternalId) se evalúa en la revisión V1 → V2. 2026-10-15 | El SaaS implica guardar los findings de todos los clientes, aislamiento entre tenants, auth multi-organización y que el operador pague el cómputo | Pasar a SaaS ahora |
-| D65 | Stack del frontend | **React + Vite + TypeScript + Tailwind CSS + shadcn/ui**, compilado a estáticos en el mismo S3 + CloudFront; app bajo `/app`. **Cambia el alcance** del prompt original ("frontend deliberadamente simple"). Ver [ADR-006](architecture-decisions/006-frontend-spa.md). 2026-10-15 | Producto con app + landing futura; UI de portfolio; el usuario conoce TS/React; sin servicios ni costos nuevos de AWS | HTML/CSS/JS sin framework; Next.js static export; Next.js con SSR; Astro |
+| D65 | Stack del frontend | **React + Vite + TypeScript + Tailwind CSS + shadcn/ui**, compilado a estáticos en el mismo S3 + CloudFront; app bajo `/app`. **Cambia el alcance** del prompt original ("frontend deliberadamente simple"). Ver [ADR-006](architecture-decisions/006-frontend-spa.md). 2026-10-15. **Superada por D75/D76: el stack ya no usa Tailwind ni shadcn/ui; usa Cloudscape Design System.** | Producto con app + landing futura; UI de portfolio; el usuario conoce TS/React; sin servicios ni costos nuevos de AWS | HTML/CSS/JS sin framework; Next.js static export; Next.js con SSR; Astro |
 | D66 | Landing | Se construye **cuando el producto se pueda instalar y usar**: buena UI, comando de instalación, link al repo. Hasta entonces, `/` redirige a `/app`. 2026-10-15 | Una landing de algo que todavía no se puede instalar promete lo que no existe (regla: documentar solo lo implementado) | Armarla ya, como ruta de la misma app |
 | D67 | Rutas de la SPA en CloudFront | **Error pages**: ante 403 y 404 del origen, devolver `/index.html` con 200; la página "No encontrado" la resuelve React. 2026-10-15 | Sin costo ni código; solución estándar para SPAs en S3 privado (S3 responde 403 a claves inexistentes) | CloudFront Function que reescribe la URL (código y costo propios); rutas con `#` (URLs poco profesionales) |
 | D68 | Política de dependencias npm (*supply chain*) | Versiones **exactas** (`save-exact`), solo versiones con **≥ 14 días** de publicadas, `ignore-scripts=true` en `frontend/.npmrc`, `package-lock.json` versionado; las herramientas de un solo uso (CLI de shadcn) se corren con `npx <paquete>@<versión>` y **no** quedan como dependencia (su CSS se copió a `src/styles/` con nota de licencia MIT). 2026-10-15 | Una versión recién publicada puede ser maliciosa o estar rota; los scripts de instalación ejecutan código ajeno; el CLI de shadcn traía 7 vulnerabilidades *high* (vía `braces`) que no aportaban nada al build | Últimas versiones con `^`; dejar `shadcn` como devDependency |
 | D69 | Contrato de la API | **OpenAPI 3.1 escrito a mano** en `backend/openapi.yaml` (fuente del contrato) + **Swagger UI solo en desarrollo** (`npm run dev`, página `swagger.html` que prueba la API vía el proxy; no entra al build). 2026-10-16 | El contrato estaba duplicado a mano (backend `validation.py` y frontend `api.ts`); sin framework, nada lo genera. Base para generar tipos y verificar el contrato en el CI (Etapa 14) | Swagger UI también en producción (peso, supply chain, y "Try it out" público sin auth); solo YAML; archivos `.http` |
 | D70 | Datos remotos en la UI | **TanStack Query** (`@tanstack/react-query`). 2026-10-16 | Estados de carga y error consistentes, caché, reintentos, recargar la lista después de una mutación, actualización optimista | Hooks propios con `useEffect` |
-| D71 | Identidad visual | **Modo oscuro por defecto** (con interruptor), color de marca **teal**, y colores semánticos fijos para severidad (CRITICAL rojo, HIGH naranja, MEDIUM ámbar, LOW gris azulado) y estado (PASS verde, REVIEW ámbar, FAIL rojo), **siempre con texto o ícono**, nunca solo color. 2026-10-16 | Estética habitual de herramientas de seguridad e infraestructura; accesibilidad para quien no distingue colores | Gris neutro por defecto de shadcn/ui |
-| D72 | Tabla de controles | **Table de shadcn** (HTML semántico) con filtros, búsqueda y orden **en el cliente**. 2026-10-17 | Son decenas de controles; `GET /controls` ya trae todos | TanStack Table (resuelve problemas de tablas grandes que no tenemos) |
+| D71 | Identidad visual | **Modo oscuro por defecto** (con interruptor), color de marca **teal**, y colores semánticos fijos para severidad (CRITICAL rojo, HIGH naranja, MEDIUM ámbar, LOW gris azulado) y estado (PASS verde, REVIEW ámbar, FAIL rojo), **siempre con texto o ícono**, nunca solo color. 2026-10-16. **Parcialmente superada por D76 (2026-10-17): el acento teal pasa al theming de Cloudscape; se mantienen el modo oscuro por defecto y los colores semánticos.** | Estética habitual de herramientas de seguridad e infraestructura; accesibilidad para quien no distingue colores | Gris neutro por defecto de shadcn/ui |
+| D72 | Tabla de controles | **Table de shadcn** (HTML semántico) con filtros, búsqueda y orden **en el cliente**. 2026-10-17. **Superada por D75: la tabla es la de Cloudscape (`Table` + `useCollection`).** | Son decenas de controles; `GET /controls` ya trae todos | TanStack Table (resuelve problemas de tablas grandes que no tenemos) |
 | D73 | Formulario de control | **Estado propio + validación propia** espejo de `FIELD_RULES` (obligatorios, largos, enums); los errores del backend (400, 409) se muestran en el campo. La validación de verdad es la del backend: la del frontend es para avisar antes. 2026-10-17 | Un formulario de 8 campos no justifica dos dependencias | react-hook-form + zod |
 | D74 | Flujo de trabajo con ramas | `main` **protegida con un ruleset** (2026-10-17): sin borrado, sin *force push*, todo cambio por **PR** (0 aprobaciones: un solo desarrollador), rama al día con `main` y check requerido **`checks`** (el `name:` del job del CI), sin bypass. Ramas `tipo/descripcion` (`feat/`, `fix/`, `ci/`, `docs/`). El CI corre en `pull_request` y en `push` a `main`. 2026-10-17 | Nada llega a `main` sin pasar el CI; historia de `main` no reescribible | Push directo a `main` (como hasta ahora) |
+| D75 | Librería de componentes del frontend | **Cloudscape Design System** (`@cloudscape-design/*`, Apache-2.0, el sistema de diseño de la consola de AWS) **reemplaza a shadcn/ui + Tailwind**. Se mantiene React + Vite + TS, TanStack Query, el cliente `api.ts`, las reglas de validación y el router. Actualiza [ADR-006](architecture-decisions/006-frontend-spa.md). 2026-10-17 | Producto para usuarios de AWS: el estilo auténtico de la consola (no una imitación); componentes de nivel consola (tabla con filtros y paginación, layout, breadcrumbs). Inspirado en la demo de Refraxion, que usa Cloudscape (se toman patrones, no su marca ni sus textos) | Disfrazar shadcn de AWS (imitación con mucho ajuste manual); dejar la UI como estaba. Contras aceptados: bundle y supply chain más grandes, rehacer las pantallas de 8.3–8.5 |
+| D76 | Color de marca con Cloudscape | **Teal como acento** (theming de Cloudscape) sobre la estética de la consola de AWS; reemplaza el tema propio de D71. 2026-10-17 | Identidad propia sin dejar de parecer AWS | Azul AWS por defecto |
 
 ## Propuestas (no decididas)
 
@@ -111,6 +113,8 @@ Todas tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSACIÓN]
 | API bajo CloudFront | Servir la API en `/api/*` (mismo origen, sin CORS) | Mejora posible mencionada en D30 |
 
 ## Preguntas abiertas para el usuario
+
+0. **Modelo de producto (2026-10-17, [PROPUESTA]):** Community (open source, self-hosted, la V1) + una edición con más funciones (nombre a definir) que corra en servidores/contenedores, ¿como SaaS, self-hosted comercial o ambas? ¿Licencia de cada una? Se decide en la revisión V1 → V2. Ver [ROADMAP.md](ROADMAP.md).
 
 1. **Nombre:** el repo de GitHub **ya se llama `openaegis`** (verificado el 2026-10-15). Remoto local actualizado y Engram fijado en `openaegis` (2026-10-15). Queda: ¿renombrar los recursos de AWS (`cloud-sec-checklist-*`) cuando se recreen con CDK? (Engram toma el nombre del proyecto del remoto.)
 2. **Etapa 11:** ¿`SecurityAudit` o policy propia?

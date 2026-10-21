@@ -1,151 +1,184 @@
 import { useMemo } from "react";
-import { ArrowRight, CheckCircle2, ListChecks, RotateCw, SearchCheck, XCircle, type LucideIcon } from "lucide-react";
-import { Link } from "react-router";
-import { SEVERITY_ORDER, SeverityBadge, severityLabel, statusLabel } from "@/components/controls/badges";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import BarChart from "@cloudscape-design/components/bar-chart";
+import Box from "@cloudscape-design/components/box";
+import Button from "@cloudscape-design/components/button";
+import ColumnLayout from "@cloudscape-design/components/column-layout";
+import Container from "@cloudscape-design/components/container";
+import ContentLayout from "@cloudscape-design/components/content-layout";
+import Grid from "@cloudscape-design/components/grid";
+import Header from "@cloudscape-design/components/header";
+import Icon, { type IconProps } from "@cloudscape-design/components/icon";
+import Link from "@cloudscape-design/components/link";
+import PieChart from "@cloudscape-design/components/pie-chart";
+import SpaceBetween from "@cloudscape-design/components/space-between";
+import Spinner from "@cloudscape-design/components/spinner";
+import Table from "@cloudscape-design/components/table";
+import { SEVERITY_ORDER, SeverityBadge, severityLabel, StatusBadge, statusLabel } from "@/components/controls/badges";
 import { SEVERITIES, STATUSES, type Control, type Severity, type Status } from "@/lib/api";
+import { useFollow } from "@/lib/navigation";
 import { useControls } from "@/lib/use-controls";
-import { cn } from "@/lib/utils";
 
-/** Totales calculados en el cliente a partir de GET /controls (mismos datos que la página de Controles). */
+/** Colores semánticos de los gráficos (D71): verde cumple, ámbar a revisar, rojo no cumple. */
+const STATUS_COLOR: Record<Status, string> = { PASS: "#16a34a", REVIEW: "#d97706", FAIL: "#dc2626" };
+const relative = new Intl.RelativeTimeFormat("es", { numeric: "auto" });
+
+function timeAgo(iso: string) {
+  const minutes = Math.round((new Date(iso).getTime() - Date.now()) / 60000);
+  if (Math.abs(minutes) < 60) return relative.format(minutes, "minute");
+  const hours = Math.round(minutes / 60);
+  if (Math.abs(hours) < 24) return relative.format(hours, "hour");
+  return relative.format(Math.round(hours / 24), "day");
+}
+
 function computeStats(items: Control[]) {
   const byStatus = Object.fromEntries(STATUSES.map((s) => [s, 0])) as Record<Status, number>;
-  const bySeverity = Object.fromEntries(SEVERITIES.map((s) => [s, { total: 0, fail: 0 }])) as Record<Severity, { total: number; fail: number }>;
+  const matrix = Object.fromEntries(SEVERITIES.map((sev) => [sev, Object.fromEntries(STATUSES.map((s) => [s, 0]))])) as Record<Severity, Record<Status, number>>;
   for (const c of items) {
     byStatus[c.status] += 1;
-    bySeverity[c.severity].total += 1;
-    if (c.status === "FAIL") bySeverity[c.severity].fail += 1;
+    matrix[c.severity][c.status] += 1;
   }
   const failing = items
     .filter((c) => c.status === "FAIL")
     .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] || a.code.localeCompare(b.code));
+  const recent = [...items].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 5);
+  const criticalOpen = items.filter((c) => c.status !== "PASS" && (c.severity === "CRITICAL" || c.severity === "HIGH")).length;
   const compliance = items.length ? Math.round((byStatus.PASS / items.length) * 100) : 0;
-  return { total: items.length, byStatus, bySeverity, failing, compliance };
+  return { total: items.length, byStatus, matrix, failing, recent, criticalOpen, compliance };
 }
 
-const STATUS_CARD: Record<Status, { icon: LucideIcon; tone: string }> = {
-  PASS: { icon: CheckCircle2, tone: "text-emerald-600 dark:text-emerald-400" },
-  REVIEW: { icon: SearchCheck, tone: "text-amber-600 dark:text-amber-400" },
-  FAIL: { icon: XCircle, tone: "text-red-600 dark:text-red-400" },
-};
-
-const SEVERITY_BAR: Record<Severity, string> = {
-  CRITICAL: "bg-red-500", HIGH: "bg-orange-500", MEDIUM: "bg-amber-500", LOW: "bg-slate-500",
-};
-
-/** Muestra una métrica con etiqueta e ícono como enlace a la ruta indicada. */
-function StatCard({ label, value, icon: Icon, tone, to }: { label: string; value: number | string; icon: LucideIcon; tone: string; to: string }) {
+function Kpi({ label, value, hint, icon, variant, href, follow }: {
+  label: string; value: string | number; hint: string; icon: IconProps.Name;
+  variant: IconProps.Variant; href: string; follow: ReturnType<typeof useFollow>;
+}) {
   return (
-    <Link to={to} className="group rounded-xl border bg-card p-4 transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        {label}
-        <Icon className={cn("size-4", tone)} aria-hidden="true" />
-      </div>
-      <p className="mt-2 text-3xl font-semibold tabular-nums">{value}</p>
-    </Link>
+    <Container fitHeight>
+      <SpaceBetween size="xxs">
+        <Box variant="awsui-key-label"><Icon name={icon} variant={variant} /> {label}</Box>
+        <Link variant="awsui-value-large" href={href} onFollow={follow} ariaLabel={`${label}: ${value}`}>{value}</Link>
+        <Box variant="small" color="text-body-secondary">{hint}</Box>
+      </SpaceBetween>
+    </Container>
   );
 }
 
-/** Resume el estado declarado de los controles y enlaza a las listas filtradas por estado o severidad. */
 export function DashboardPage() {
-  const { data, isPending, error, refetch, isFetching } = useControls();
-  const stats = useMemo(() => computeStats(data?.items ?? []), [data]);
+  const { data, isPending, error, refetch } = useControls();
+  const follow = useFollow();
+  const s = useMemo(() => computeStats(data?.items ?? []), [data]);
 
   return (
-    <>
-      <PageHeader title="Dashboard" description="Resumen del estado declarado de los controles (manual; los checks automáticos llegan en la Etapa 11)." />
-
-      {isPending && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Cargando resumen">
-          {Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-24" />)}
-        </div>
-      )}
+    <ContentLayout
+      header={
+        <Header
+          variant="h1"
+          description="Estado declarado de tus controles de seguridad. Los checks automáticos llegan en la Etapa 11."
+          actions={<Button variant="primary" iconName="add-plus" href="/app/controles/nuevo" onFollow={follow}>Nuevo control</Button>}
+        >
+          Dashboard
+        </Header>
+      }
+    >
+      {isPending && <Box textAlign="center" padding="xxl"><Spinner size="large" /></Box>}
 
       {error && (
-        <div role="alert" className="flex flex-col items-center gap-3 rounded-xl border p-10 text-center">
-          <p className="font-medium">No se pudo cargar el resumen</p>
-          <p className="text-sm text-muted-foreground">{error.message}</p>
-          <Button variant="outline" onClick={() => refetch()} disabled={isFetching}><RotateCw /> Reintentar</Button>
-        </div>
+        <Container>
+          <Box textAlign="center">
+            <SpaceBetween size="xs">
+              <b>No se pudo cargar el resumen</b>
+              <Box variant="p">{error.message}</Box>
+              <Button onClick={() => void refetch()}>Reintentar</Button>
+            </SpaceBetween>
+          </Box>
+        </Container>
       )}
 
       {data && (
-        <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard label="Controles" value={stats.total} icon={ListChecks} tone="text-primary" to="/app/controles" />
-            {STATUSES.map((s) => (
-              <StatCard key={s} label={statusLabel(s)} value={stats.byStatus[s]} icon={STATUS_CARD[s].icon} tone={STATUS_CARD[s].tone} to={`/app/controles?estado=${s}`} />
-            ))}
-          </div>
+        <SpaceBetween size="l">
+          <ColumnLayout columns={4}>
+            <Kpi label="Cumplimiento" value={`${s.compliance}%`} hint={`${s.byStatus.PASS} de ${s.total} controles cumplen`} icon="status-positive" variant="success" href="/app/controles?estado=PASS" follow={follow} />
+            <Kpi label="No cumplen" value={s.byStatus.FAIL} hint="Requieren corrección" icon="status-negative" variant="error" href="/app/controles?estado=FAIL" follow={follow} />
+            <Kpi label="A revisar" value={s.byStatus.REVIEW} hint="Pendientes de evaluar" icon="status-warning" variant="warning" href="/app/controles?estado=REVIEW" follow={follow} />
+            <Kpi label="Críticos y altos abiertos" value={s.criticalOpen} hint="Severidad crítica o alta sin cumplir" icon="security" variant="link" href="/app/controles" follow={follow} />
+          </ColumnLayout>
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            <section className="rounded-xl border bg-card p-5" aria-labelledby="cumplimiento">
-              <h2 id="cumplimiento" className="font-medium">Cumplimiento declarado</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Controles marcados como "Cumple" sobre el total.</p>
-              <p className="mt-4 text-4xl font-semibold tabular-nums">{stats.compliance}%</p>
-              <div className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-muted" role="img"
-                aria-label={STATUSES.map((s) => `${statusLabel(s)}: ${stats.byStatus[s]}`).join(", ")}>
-                <div className="bg-emerald-500" style={{ width: `${stats.total ? (stats.byStatus.PASS / stats.total) * 100 : 0}%` }} />
-                <div className="bg-amber-500" style={{ width: `${stats.total ? (stats.byStatus.REVIEW / stats.total) * 100 : 0}%` }} />
-                <div className="bg-red-500" style={{ width: `${stats.total ? (stats.byStatus.FAIL / stats.total) * 100 : 0}%` }} />
-              </div>
-              {/* Leyenda: el color nunca va solo (D71) */}
-              <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                {STATUSES.map((s) => (
-                  <li key={s} className="flex items-center gap-1.5">
-                    <span className={cn("size-2 rounded-full", { PASS: "bg-emerald-500", REVIEW: "bg-amber-500", FAIL: "bg-red-500" }[s])} aria-hidden="true" />
-                    {statusLabel(s)}: <span className="tabular-nums text-foreground">{stats.byStatus[s]}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
+          <Grid gridDefinition={[{ colspan: { default: 12, s: 5 } }, { colspan: { default: 12, s: 7 } }]}>
+            <Container fitHeight header={<Header variant="h2" description="Proporción de controles por estado.">Distribución por estado</Header>}>
+              <PieChart
+                variant="donut"
+                size="medium"
+                hideFilter
+                hideTitles
+                hideDescriptions
+                data={STATUSES.map((st) => ({ title: statusLabel(st), value: s.byStatus[st], color: STATUS_COLOR[st] }))}
+                innerMetricValue={`${s.compliance}%`}
+                innerMetricDescription="cumple"
+                ariaLabel="Distribución de controles por estado"
+                ariaDescription={STATUSES.map((st) => `${statusLabel(st)}: ${s.byStatus[st]}`).join(", ")}
+                segmentDescription={(d, sum) => `${d.value} controles (${sum ? Math.round((d.value / sum) * 100) : 0}%)`}
+                empty={<Box textAlign="center" color="inherit">Sin controles</Box>}
+              />
+            </Container>
 
-            <section className="rounded-xl border bg-card p-5" aria-labelledby="por-severidad">
-              <h2 id="por-severidad" className="font-medium">Por severidad</h2>
-              <ul className="mt-4 space-y-3">
-                {SEVERITIES.slice().reverse().map((sev) => {
-                  const { total, fail } = stats.bySeverity[sev];
-                  return (
-                    <li key={sev}>
-                      <div className="flex justify-between text-sm">
-                        <Link to={`/app/controles?severidad=${sev}`} className="hover:underline">{severityLabel(sev)}</Link>
-                        <span className="tabular-nums text-muted-foreground">{total} · {fail} no cumplen</span>
-                      </div>
-                      <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
-                        <div className={cn("h-full", SEVERITY_BAR[sev])} style={{ width: `${stats.total ? (total / stats.total) * 100 : 0}%` }} />
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          </div>
+            <Container fitHeight header={<Header variant="h2" description="Cuántos controles hay de cada severidad y en qué estado.">Por severidad</Header>}>
+              <BarChart
+                stackedBars
+                hideFilter
+                height={220}
+                xScaleType="categorical"
+                xDomain={SEVERITIES.slice().reverse().map(severityLabel)}
+                series={STATUSES.map((st) => ({
+                  title: statusLabel(st),
+                  type: "bar" as const,
+                  color: STATUS_COLOR[st],
+                  data: SEVERITIES.slice().reverse().map((sev) => ({ x: severityLabel(sev), y: s.matrix[sev][st] })),
+                }))}
+                yTickFormatter={(v) => (Number.isInteger(v) ? String(v) : "")}
+                xTitle="Severidad"
+                yTitle="Controles"
+                ariaLabel="Controles por severidad y estado"
+                empty={<Box textAlign="center" color="inherit">Sin controles</Box>}
+              />
+            </Container>
+          </Grid>
 
-          <section className="rounded-xl border bg-card p-5" aria-labelledby="prioridad">
-            <div className="flex items-center justify-between">
-              <h2 id="prioridad" className="font-medium">Para resolver primero</h2>
-              <Link to="/app/controles?estado=FAIL" className="flex items-center gap-1 text-sm text-primary hover:underline">
-                Ver todos <ArrowRight className="size-4" aria-hidden="true" />
-              </Link>
-            </div>
-            {stats.failing.length === 0 ? (
-              <p className="mt-4 text-sm text-muted-foreground">Ningún control marcado como "No cumple".</p>
-            ) : (
-              <ul className="mt-3 divide-y">
-                {stats.failing.slice(0, 5).map((c) => (
-                  <li key={c.id} className="flex items-center gap-3 py-2.5">
-                    <span className="w-20 shrink-0 font-mono text-xs text-muted-foreground">{c.code}</span>
-                    <span className="min-w-0 flex-1 truncate text-sm">{c.title}</span>
-                    <SeverityBadge severity={c.severity} />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
+          <Grid gridDefinition={[{ colspan: { default: 12, s: 6 } }, { colspan: { default: 12, s: 6 } }]}>
+            <Table
+              variant="container"
+              header={
+                <Header
+                  variant="h2"
+                  counter={`(${s.failing.length})`}
+                  description="Controles que no cumplen, por severidad."
+                  actions={<Button href="/app/controles?estado=FAIL" onFollow={follow}>Ver todos</Button>}
+                >
+                  Para resolver primero
+                </Header>
+              }
+              items={s.failing.slice(0, 5)}
+              trackBy="id"
+              columnDefinitions={[
+                { id: "code", header: "Código", cell: (c) => <Link href={`/app/controles/${c.id}/editar`} onFollow={follow}>{c.code}</Link>, width: 110 },
+                { id: "title", header: "Control", cell: (c) => c.title },
+                { id: "severity", header: "Severidad", cell: (c) => <SeverityBadge severity={c.severity} />, width: 110 },
+              ]}
+              empty={<Box textAlign="center" color="inherit" padding="s"><Icon name="status-positive" variant="success" /> Ningún control marcado como "No cumple".</Box>}
+            />
+
+            <Table
+              variant="container"
+              header={<Header variant="h2" description="Últimos controles modificados.">Actividad reciente</Header>}
+              items={s.recent}
+              trackBy="id"
+              columnDefinitions={[
+                { id: "code", header: "Código", cell: (c) => <Link href={`/app/controles/${c.id}/editar`} onFollow={follow}>{c.code}</Link>, width: 110 },
+                { id: "status", header: "Estado", cell: (c) => <StatusBadge status={c.status} /> },
+                { id: "when", header: "Cuándo", cell: (c) => timeAgo(c.updated_at), width: 130 },
+              ]}
+              empty={<Box textAlign="center" color="inherit" padding="s">Sin actividad.</Box>}
+            />
+          </Grid>
+        </SpaceBetween>
       )}
-    </>
+    </ContentLayout>
   );
 }

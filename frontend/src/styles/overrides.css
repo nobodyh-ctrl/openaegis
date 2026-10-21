@@ -1,0 +1,11 @@
+/*
+ * Ajustes sobre Cloudscape que sus tokens de tema no cubren.
+ * OJO: usan clases internas (awsui_*), que no son API pública y pueden cambiar al actualizar
+ * @cloudscape-design/components. Después de cada actualización, revisar que sigan aplicando.
+ */
+
+/* Barra superior: alinear el logo con el botón del menú de la franja de abajo (12 px) en lugar de los 32 px por defecto. */
+/* El :not(#\9) sube la especificidad, igual que hace Cloudscape con sus propios selectores. */
+#top-nav [class*="awsui_padding-box_"]:not(#\9) {
+  padding-inline-start: 12px;
+}

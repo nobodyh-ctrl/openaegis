@@ -1,119 +1,205 @@
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router";
-import { Plus, RotateCw, Search } from "lucide-react";
-import { ControlFormSheet } from "@/components/controls/ControlFormSheet";
-import { ControlsTable } from "@/components/controls/ControlsTable";
-import { DeleteControlDialog } from "@/components/controls/DeleteControlDialog";
-import { SEVERITY_ORDER, severityLabel, statusLabel } from "@/components/controls/badges";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import { SEVERITIES, STATUSES, type Control } from "@/lib/api";
-import { useControls } from "@/lib/use-controls";
+import { useCollection } from "@cloudscape-design/collection-hooks";
+import Box from "@cloudscape-design/components/box";
+import Button from "@cloudscape-design/components/button";
+import ContentLayout from "@cloudscape-design/components/content-layout";
+import ButtonDropdown from "@cloudscape-design/components/button-dropdown";
+import Header from "@cloudscape-design/components/header";
+import Link from "@cloudscape-design/components/link";
+import Pagination from "@cloudscape-design/components/pagination";
+import Select, { type SelectProps } from "@cloudscape-design/components/select";
+import SpaceBetween from "@cloudscape-design/components/space-between";
+import Table, { type TableProps } from "@cloudscape-design/components/table";
+import TextFilter from "@cloudscape-design/components/text-filter";
+import { useNavigate, useSearchParams } from "react-router";
+import { ControlDetails } from "@/components/controls/ControlDetails";
+import { DeleteControlModal } from "@/components/controls/DeleteControlModal";
+import { SEVERITY_ORDER, SeverityBadge, StatusBadge, severityLabel, statusLabel } from "@/components/controls/badges";
+import { useSplitPanel } from "@/components/layout/split-panel";
+import { SEVERITIES, STATUSES, type Control, type Status } from "@/lib/api";
+import { useFollow } from "@/lib/navigation";
+import { useNotifications } from "@/lib/notifications";
+import { useControls, useUpdateControl } from "@/lib/use-controls";
 
-const ALL = "ALL"; // Radix Select no acepta "" como valor
+const ALL: SelectProps.Option = { value: "ALL", label: "Toda severidad" };
+const ALL_STATUS: SelectProps.Option = { value: "ALL", label: "Todo estado" };
+const severityOptions = [ALL, ...SEVERITIES.map((s) => ({ value: s, label: severityLabel(s) }))];
+const statusOptions = [ALL_STATUS, ...STATUSES.map((s) => ({ value: s, label: statusLabel(s) }))];
+const relative = new Intl.RelativeTimeFormat("es", { numeric: "auto" });
 
-/** Lista y administra controles con búsqueda y filtros inicializados desde valores válidos de la URL. */
+function timeAgo(iso: string) {
+  const minutes = Math.round((new Date(iso).getTime() - Date.now()) / 60000);
+  if (Math.abs(minutes) < 60) return relative.format(minutes, "minute");
+  const hours = Math.round(minutes / 60);
+  if (Math.abs(hours) < 24) return relative.format(hours, "hour");
+  return relative.format(Math.round(hours / 24), "day");
+}
+
 export function ControlsPage() {
   const { data, isPending, error, refetch, isFetching } = useControls();
-  // Filtros iniciales desde la URL (los links del Dashboard: ?estado=FAIL, ?severidad=HIGH)
+  const update = useUpdateControl();
+  const { notify } = useNotifications();
+  const navigate = useNavigate();
+  const follow = useFollow();
+
+  // Filtros iniciales desde la URL (links del Dashboard: ?estado=FAIL, ?severidad=HIGH)
   const [params] = useSearchParams();
-  /** Devuelve el valor del parámetro si está permitido; si falta o es inválido, devuelve ALL. */
-  const fromUrl = (key: string, allowed: readonly string[]) => (allowed.includes(params.get(key) ?? "") ? params.get(key)! : ALL);
-  const [search, setSearch] = useState("");
-  const [severity, setSeverity] = useState(() => fromUrl("severidad", SEVERITIES));
-  const [status, setStatus] = useState(() => fromUrl("estado", STATUSES));
-  const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<Control | undefined>();
+  const [severity, setSeverity] = useState(() => severityOptions.find((o) => o.value === params.get("severidad")) ?? ALL);
+  const [status, setStatus] = useState(() => statusOptions.find((o) => o.value === params.get("estado")) ?? ALL_STATUS);
   const [deleting, setDeleting] = useState<Control | null>(null);
 
-  // Filtros y orden en el cliente (D72): son decenas de controles y GET /controls trae todos
-  const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return (data?.items ?? [])
-      .filter((c) => severity === ALL || c.severity === severity)
-      .filter((c) => status === ALL || c.status === status)
-      .filter((c) => !q || [c.code, c.title, c.service, c.category].some((t) => t.toLowerCase().includes(q)))
-      .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] || a.code.localeCompare(b.code));
-  }, [data, search, severity, status]);
+  const columns = useMemo<TableProps.ColumnDefinition<Control>[]>(() => [
+    {
+      id: "code",
+      header: "Código",
+      cell: (c) => <Link href={`/app/controles/${c.id}/editar`} onFollow={follow}>{c.code}</Link>,
+      sortingField: "code",
+      width: 130,
+    },
+    // Texto escrito por usuarios: React lo escapa (sin dangerouslySetInnerHTML), protección contra XSS
+    { id: "title", header: "Control", cell: (c) => c.title, sortingField: "title", minWidth: 220 },
+    { id: "service", header: "Servicio", cell: (c) => c.service, sortingField: "service", width: 120 },
+    { id: "category", header: "Categoría", cell: (c) => c.category, sortingField: "category", width: 170 },
+    {
+      id: "severity",
+      header: "Severidad",
+      cell: (c) => <SeverityBadge severity={c.severity} />,
+      sortingComparator: (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity],
+      width: 120,
+    },
+    { id: "status", header: "Estado", cell: (c) => <StatusBadge status={c.status} />, sortingField: "status", width: 140 },
+    { id: "updated", header: "Actualizado", cell: (c) => timeAgo(c.updated_at), sortingField: "updated_at", width: 140 },
+  ], [follow]);
 
-  const filtered = search.trim() !== "" || severity !== ALL || status !== ALL;
-  const openCreate = () => { setEditing(undefined); setFormOpen(true); };
-  const openEdit = (c: Control) => { setEditing(c); setFormOpen(true); };
+  // Filtros, orden y paginación en el cliente (D72)
+  const { items, collectionProps, filterProps, paginationProps, filteredItemsCount, actions } = useCollection(data?.items ?? [], {
+    filtering: {
+      filteringFunction: (c, text) => {
+        const q = text.trim().toLowerCase();
+        return (severity.value === "ALL" || c.severity === severity.value)
+          && (status.value === "ALL" || c.status === status.value)
+          && (!q || [c.code, c.title, c.service, c.category].some((t) => t.toLowerCase().includes(q)));
+      },
+      empty: (
+        <Box textAlign="center" color="inherit" padding="l">
+          <SpaceBetween size="xs">
+            <b>Todavía no hay controles</b>
+            <Box variant="p" color="inherit">Creá el primero para armar tu checklist de seguridad.</Box>
+            <Button href="/app/controles/nuevo" onFollow={follow}>Nuevo control</Button>
+          </SpaceBetween>
+        </Box>
+      ),
+      noMatch: (
+        <Box textAlign="center" color="inherit" padding="l">
+          <SpaceBetween size="xs">
+            <b>Ningún control coincide con los filtros</b>
+            <Button onClick={() => { actions.setFiltering(""); setSeverity(ALL); setStatus(ALL_STATUS); }}>Limpiar filtros</Button>
+          </SpaceBetween>
+        </Box>
+      ),
+    },
+    sorting: { defaultState: { sortingColumn: columns[4] } },
+    pagination: { pageSize: 20 },
+    selection: { keepSelection: false, trackBy: "id" },
+  });
+
+  const selectedId = collectionProps.selectedItems?.[0]?.id;
+  // El seleccionado se toma de los datos frescos (cambia en el panel al editar el estado)
+  const selected = data?.items.find((c) => c.id === selectedId);
+
+  const changeStatus = (control: Control, newStatus: Status) => {
+    if (control.status === newStatus) return;
+    update.mutate(
+      { id: control.id, patch: { status: newStatus } },
+      {
+        onSuccess: () => notify("success", `${control.code}: ${statusLabel(newStatus)}.`),
+        onError: (err) => notify("error", `No se pudo cambiar el estado: ${err.message}`),
+      },
+    );
+  };
+
+  const details = useMemo(() => selected ? (
+    <ControlDetails
+      control={selected}
+      onEdit={() => navigate(`/app/controles/${selected.id}/editar`)}
+      onDelete={() => setDeleting(selected)}
+      onChangeStatus={(s) => changeStatus(selected, s)}
+    />
+  ) : null, [selected]); // solo cambia cuando cambia el control seleccionado (o sus datos)
+  useSplitPanel(details);
 
   return (
-    <>
-      <PageHeader
-        title="Controles"
-        description="Reglas de seguridad que se evalúan en la cuenta."
-        actions={<Button onClick={openCreate}><Plus /> Nuevo control</Button>}
+    <ContentLayout
+      header={
+        <Header variant="h1" description="Reglas de seguridad de tu cuenta. Seleccioná un control para ver su detalle.">
+          Controles
+        </Header>
+      }
+    >
+      <Table
+        {...collectionProps}
+        variant="container"
+        selectionType="single"
+        trackBy="id"
+        resizableColumns
+        columnDefinitions={columns}
+        items={items}
+        loading={isPending}
+        loadingText="Cargando controles"
+        ariaLabels={{ itemSelectionLabel: (_, c) => `Seleccionar ${c.code}`, selectionGroupLabel: "Selección de controles" }}
+        header={
+          <Header
+            variant="h2"
+            counter={data ? (filteredItemsCount === data.count ? `(${data.count})` : `(${filteredItemsCount}/${data.count})`) : undefined}
+            description="Cada control es una regla que se evalúa en la cuenta."
+            actions={
+              <SpaceBetween direction="horizontal" size="xs">
+                <Button iconName="refresh" ariaLabel="Actualizar" loading={isFetching && !isPending} onClick={() => void refetch()} />
+                <ButtonDropdown
+                  disabled={!selected}
+                  items={[
+                    { id: "edit", text: "Editar", iconName: "edit" },
+                    { id: "status", text: "Cambiar estado", items: STATUSES.map((s) => ({ id: `status:${s}`, text: statusLabel(s), disabled: selected?.status === s })) },
+                    { id: "delete", text: "Eliminar", iconName: "remove" },
+                  ]}
+                  onItemClick={({ detail }) => {
+                    if (!selected) return;
+                    if (detail.id === "edit") navigate(`/app/controles/${selected.id}/editar`);
+                    else if (detail.id === "delete") setDeleting(selected);
+                    else if (detail.id.startsWith("status:")) changeStatus(selected, detail.id.slice(7) as Status);
+                  }}
+                >
+                  Acciones
+                </ButtonDropdown>
+                <Button variant="primary" iconName="add-plus" href="/app/controles/nuevo" onFollow={follow}>Nuevo control</Button>
+              </SpaceBetween>
+            }
+          >
+            Todos los controles
+          </Header>
+        }
+        filter={
+          <SpaceBetween direction="horizontal" size="xs">
+            <div style={{ minWidth: 280 }}>
+              <TextFilter {...filterProps} filteringPlaceholder="Buscar por código, título, servicio o categoría" filteringAriaLabel="Buscar controles" countText={`${filteredItemsCount ?? 0} coincidencias`} />
+            </div>
+            <Select selectedOption={severity} onChange={({ detail }) => setSeverity(detail.selectedOption)} options={severityOptions} ariaLabel="Filtrar por severidad" />
+            <Select selectedOption={status} onChange={({ detail }) => setStatus(detail.selectedOption)} options={statusOptions} ariaLabel="Filtrar por estado" />
+          </SpaceBetween>
+        }
+        pagination={<Pagination {...paginationProps} />}
+        empty={error ? (
+          <Box textAlign="center" color="inherit" padding="l">
+            <SpaceBetween size="xs">
+              <b>No se pudieron cargar los controles</b>
+              <Box variant="p" color="inherit">{error.message}</Box>
+              <Button onClick={() => void refetch()}>Reintentar</Button>
+            </SpaceBetween>
+          </Box>
+        ) : collectionProps.empty}
       />
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por código, título, servicio…" className="pl-8" aria-label="Buscar controles" />
-        </div>
-        <Select value={severity} onValueChange={setSeverity}>
-          <SelectTrigger className="w-40" aria-label="Filtrar por severidad"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>Toda severidad</SelectItem>
-            {SEVERITIES.map((s) => <SelectItem key={s} value={s}>{severityLabel(s)}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-40" aria-label="Filtrar por estado"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>Todo estado</SelectItem>
-            {STATUSES.map((s) => <SelectItem key={s} value={s}>{statusLabel(s)}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        {data && (
-          <p className="ml-auto text-sm text-muted-foreground" aria-live="polite">
-            {visible.length} de {data.count} controles
-          </p>
-        )}
-      </div>
-
-      <div className="rounded-xl border bg-card">
-        {isPending && (
-          <div className="space-y-3 p-4" aria-label="Cargando controles">
-            {Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-10 w-full" />)}
-          </div>
-        )}
-
-        {error && (
-          <div role="alert" className="flex flex-col items-center gap-3 p-10 text-center">
-            <p className="font-medium">No se pudieron cargar los controles</p>
-            <p className="text-sm text-muted-foreground">{error.message}</p>
-            <Button variant="outline" onClick={() => refetch()} disabled={isFetching}><RotateCw /> Reintentar</Button>
-          </div>
-        )}
-
-        {data && data.count === 0 && (
-          <div className="flex flex-col items-center gap-3 p-10 text-center">
-            <p className="font-medium">Todavía no hay controles</p>
-            <p className="text-sm text-muted-foreground">Creá el primero para empezar a armar tu checklist.</p>
-            <Button onClick={openCreate}><Plus /> Nuevo control</Button>
-          </div>
-        )}
-
-        {data && data.count > 0 && visible.length === 0 && (
-          <div className="flex flex-col items-center gap-3 p-10 text-center">
-            <p className="font-medium">Ningún control coincide con los filtros</p>
-            {filtered && (
-              <Button variant="outline" onClick={() => { setSearch(""); setSeverity(ALL); setStatus(ALL); }}>Limpiar filtros</Button>
-            )}
-          </div>
-        )}
-
-        {visible.length > 0 && <ControlsTable controls={visible} onEdit={openEdit} onDelete={setDeleting} />}
-      </div>
-
-      <ControlFormSheet open={formOpen} onOpenChange={setFormOpen} control={editing} />
-      <DeleteControlDialog control={deleting} onClose={() => setDeleting(null)} />
-    </>
+      <DeleteControlModal control={deleting} onDismiss={() => { setDeleting(null); actions.setSelectedItems([]); }} />
+    </ContentLayout>
   );
 }

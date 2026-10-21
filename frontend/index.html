@@ -9,16 +9,17 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <!-- Color de la barra del navegador en móviles: el fondo oscuro de la marca -->
     <meta name="theme-color" content="#0b1524" />
-    <!-- Aplica el tema antes de dibujar, para evitar un parpadeo claro→oscuro al cargar (D71). -->
-    <script>
-      try {
-        if (localStorage.getItem("openaegis-theme") !== "light") document.documentElement.classList.add("dark");
-      } catch {
-        document.documentElement.classList.add("dark");
-      }
-    </script>
   </head>
   <body>
+    <!-- Modo oscuro de Cloudscape antes de dibujar (evita el parpadeo claro→oscuro). Va en <body> porque
+         Cloudscape define los colores en <body>: la clase tiene que estar ahí, no en <html>. -->
+    <script>
+      try {
+        if (localStorage.getItem("openaegis-theme") !== "light") document.body.classList.add("awsui-dark-mode");
+      } catch {
+        document.body.classList.add("awsui-dark-mode");
+      }
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

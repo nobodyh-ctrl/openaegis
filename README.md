@@ -3,7 +3,7 @@
 > Aplicación serverless en AWS para gestionar controles de seguridad cloud y, más adelante, evaluarlos con checks automáticos de solo lectura.
 > Proyecto **educativo y de portfolio**, construido etapa por etapa para entender cada servicio de AWS que usa. *(Antes: "Cloud Security Checklist".)*
 
-**Estado:** V1 en desarrollo. Etapas 0–7 completas (CRUD de controles funcionando y permisos auditados) + CI mínimo; sigue la Etapa 8 (frontend). Ver [Roadmap](#roadmap).
+**Estado:** V1 en desarrollo. Etapas 0–7 completas (CRUD de controles funcionando y permisos auditados) + CI mínimo; la Etapa 8 (frontend) está **en curso**: la SPA con Cloudscape está implementada en el repo y verificada en local, pero **todavía no está desplegada** en AWS. Ver [Roadmap](#roadmap).
 
 ---
 
@@ -19,7 +19,8 @@ En las próximas etapas va a ejecutar **checks automáticos de solo lectura** co
 
 | Funcionalidad | Estado |
 |---|---|
-| Frontend estático servido por CloudFront desde un bucket S3 privado | ✅ Solo una página de prueba |
+| Frontend estático servido por CloudFront desde un bucket S3 privado | ✅ Solo una página de prueba (el build de la SPA todavía no se desplegó) |
+| SPA (React + Vite + TypeScript + Cloudscape, D75/D76) | ✅ Implementada y verificada en local; **no desplegada** en AWS |
 | API HTTP con throttling y CORS restringido | ✅ |
 | `GET /controls` — listar controles | ✅ |
 | `GET /controls/{id}` — obtener un control | ✅ |
@@ -27,7 +28,7 @@ En las próximas etapas va a ejecutar **checks automáticos de solo lectura** co
 | `PATCH /controls/{id}` — editar campos o cambiar el estado (404 sin crear items, 409 por `code` de otro control, allowlist) | ✅ |
 | `DELETE /controls/{id}` — eliminar un control (404 si no existe, devuelve el item borrado) | ✅ |
 | CI con GitHub Actions: tests unitarios + chequeo de identificadores reales en cada push, sin credenciales de AWS | ✅ |
-| Frontend real, autenticación, checks, findings, score, IaC, CI, tests automatizados | 🔜 Ver roadmap |
+| Autenticación, checks, findings, score, IaC, job de frontend en CI, tests de `controls.py`/API | 🔜 Ver roadmap |
 
 ## Arquitectura
 
@@ -63,7 +64,7 @@ Python puro, sin frameworks ni dependencias externas, separado por responsabilid
 
 ## Por qué esta arquitectura
 
-Cada decisión está registrada con su motivo y sus alternativas en **[docs/DECISIONS.md](docs/DECISIONS.md)**; las cinco más importantes tienen un ADR completo en **[docs/architecture-decisions/](docs/architecture-decisions/)**.
+Cada decisión está registrada con su motivo y sus alternativas en **[docs/DECISIONS.md](docs/DECISIONS.md)**; las seis más importantes tienen un ADR completo en **[docs/architecture-decisions/](docs/architecture-decisions/)**.
 
 ### Por qué serverless
 
@@ -103,7 +104,7 @@ Serverless, pago por uso y acceso **por IAM**: no hay usuario y contraseña de b
 - **CORS** restringido al dominio del frontend (aclaración: CORS **no** es autenticación; la autenticación llega con Cognito).
 - **Throttling** en la API para limitar el abuso y el costo (*denial of wallet*).
 - **Logs** con ruta e IDs de request, **sin** el event completo (que incluye headers e IP).
-- Pendiente: autenticación (Cognito), alarmas, revisión completa de IAM.
+- Pendiente: autenticación (Cognito) y alarmas.
 
 ## Costos
 
@@ -129,7 +130,7 @@ Cada doc de etapa tiene su sección **"Cómo revertir esta etapa"**. Orden suger
 
 ## Roadmap
 
-**V1 (en curso):** cuenta segura → S3 → CloudFront → Lambda → API Gateway → DynamoDB → IAM → **frontend (siguiente)** → Cognito → CloudWatch → checks read-only + findings + score → CDK → CI → tests → documentación → demo.
+**V1 (en curso):** cuenta segura → S3 → CloudFront → Lambda → API Gateway → DynamoDB → IAM → **frontend (en curso)** → Cognito → CloudWatch → checks read-only + findings + score → CDK → CI → tests → documentación → demo.
 
 **Después de la V1:** una revisión de arquitectura V1 → V2 y una evolución progresiva hacia Cloud/DevSecOps (containers, Terraform, CI/CD con OIDC, observabilidad, remediación controlada). Cada tecnología se agrega solo si resuelve un problema concreto.
 
@@ -139,10 +140,10 @@ Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 | Doc | Contenido |
 |---|---|
-| [docs/00](docs/00-account-setup.md) … [docs/07](docs/07-iam.md) · [docs/13a](docs/13a-ci-minimo.md) | Una etapa por documento: conceptos, decisiones, configuración, verificación, costos, cómo revertir |
+| [docs/00](docs/00-account-setup.md) … [docs/08](docs/08-frontend.md) · [docs/13a](docs/13a-ci-minimo.md) | Una etapa por documento: conceptos, decisiones, configuración, verificación, costos, cómo revertir |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Arquitectura implementada |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Todas las decisiones técnicas (índice) |
-| [docs/architecture-decisions/](docs/architecture-decisions/) | ADRs de las decisiones grandes: serverless, S3 + CloudFront, HTTP API, DynamoDB, modelo de despliegue |
+| [docs/architecture-decisions/](docs/architecture-decisions/) | ADRs de las decisiones grandes: serverless, S3 + CloudFront, HTTP API, DynamoDB, modelo de despliegue, frontend SPA |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Etapas y estado |
 | [docs/LEARNING_LOG.md](docs/LEARNING_LOG.md) | Conceptos aprendidos y errores encontrados |
 | [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md) | Origen y objetivos del proyecto |

@@ -171,14 +171,14 @@ Con cada deploy, solo hay que invalidar `/index.html`. Resuelve por diseño el p
 | # | Decisión | Detalle |
 |---|---|---|
 | D64 | Modelo de cuentas | V1 self-hosted: sin flujo de "conectar cuenta"; la UI muestra la región (y la cuenta, con login) |
-| D65 | Stack | React + Vite + TypeScript + Tailwind CSS + shadcn/ui; app bajo `/app` ([ADR-006](architecture-decisions/006-frontend-spa.md)) |
+| D65 | Stack | React + Vite + TypeScript + Tailwind CSS + shadcn/ui; app bajo `/app` ([ADR-006](architecture-decisions/006-frontend-spa.md)). **Superada por D75/D76: Cloudscape Design System.** |
 | D66 | Landing | Cuando el producto se pueda instalar (Etapa 16); hasta entonces `/` → `/app` |
 | D67 | Rutas de la SPA | Error pages de CloudFront (403/404 → `/index.html`, 200) |
 | D68 | Dependencias npm | Versiones exactas, ≥ 14 días de publicadas, `ignore-scripts`, lockfile; CLIs con `npx`, no como dependencia |
 | D69 | Contrato de la API | `backend/openapi.yaml` (OpenAPI 3.1) + Swagger UI solo en desarrollo |
 | D70 | Datos remotos | TanStack Query |
-| D71 | Identidad visual | Oscuro por defecto, teal, colores semánticos con texto o ícono |
-| D72 | Tabla | Table de shadcn; filtros, búsqueda y orden en el cliente |
+| D71 | Identidad visual | Oscuro por defecto, teal, colores semánticos con texto o ícono. **Parcialmente superada por D76: el teal pasa al theming de Cloudscape; el modo oscuro y los colores semánticos siguen.** |
+| D72 | Tabla | Table de shadcn; filtros, búsqueda y orden en el cliente. **Superada por D75: `Table` + `useCollection` de Cloudscape.** |
 | D73 | Formulario | Estado y validación propios (espejo de `FIELD_RULES`); errores del backend en el campo |
 
 ## 4. Configuración realizada
@@ -296,6 +296,8 @@ Decisiones de diseño del cliente:
 
 ### 4.4 Paso 8.3 — Layout, rutas y tema (2026-10-17)
 
+> **Parcialmente reemplazado por §4.7 y §4.8 (D75/D76):** `SidebarNav.tsx`, `ThemeToggle.tsx`, `PageHeader.tsx`, `src/index.css` y los componentes `ui/*` de shadcn ya no existen. El layout actual está en `AppLayout.tsx` con `AppLayoutToolbar`, `SideNavigation` y `TopNavigation` de Cloudscape, más `split-panel.tsx` y `brand-theme.ts`. Lo que sigue se conserva como historial del paso 8.3.
+
 ```text
 main.tsx:  <ThemeProvider> → <QueryClientProvider> → <RouterProvider router={router} />
 
@@ -311,7 +313,7 @@ router.tsx:  /                → <Navigate to="/app">   (la landing va acá, D6
 | `src/router.tsx` | Rutas con React Router (`createBrowserRouter`) |
 | `src/components/layout/AppLayout.tsx` | Menú lateral (escritorio) o en `Sheet` (móvil), barra superior con la región y el tema, `<Outlet />` para cada página, enlace "Saltar al contenido" |
 | `src/components/layout/SidebarNav.tsx` | Marca y navegación (`NavLink` marca la página activa y pone `aria-current`). Solo lo que existe: Findings y Score aparecen en la Etapa 11 |
-| `src/components/layout/ThemeToggle.tsx`, `src/lib/theme.tsx` | Tema claro/oscuro: clase `dark` en `<html>`, recordado en `localStorage` (con `try/catch`: puede no estar disponible) |
+| `src/components/layout/ThemeToggle.tsx`, `src/lib/theme.tsx` | Tema claro/oscuro: desde D75, `applyMode` de Cloudscape agrega `awsui-dark-mode` en `<body>` (no una clase `dark` en `<html>`; ver §4.7), recordado en `localStorage` (con `try/catch`: puede no estar disponible) |
 | `index.html` (script en `<head>`) | Aplica el tema **antes** de dibujar, para evitar el parpadeo claro → oscuro |
 | `src/index.css` | Variables de color de D71: marca teal, fondo oscuro con leve tinte azulado |
 | `src/lib/query-client.ts` | TanStack Query: datos frescos 30 s, sin recargar al volver a la pestaña, **sin reintentos en 4xx** (un 400/404/409 no se arregla repitiendo; un 429 es el throttling), 1 reintento en red o 5xx |
@@ -337,6 +339,8 @@ Dependencia nueva: `@tanstack/react-query` **5.104.1** (publicada el 2026-10-02;
 **Ícono de la app (2026-10-17):** `frontend/public/favicon.svg` (escudo con check, la forma `shield-check` de Lucide, licencia ISC, en teal sobre el fondo de la marca `#0b1524`) y `frontend/public/apple-touch-icon.png` (180×180, opaco: iOS redondea los íconos y rellena de negro las esquinas transparentes), generado renderizando el SVG con Chrome headless. `index.html` los referencia y define `theme-color`. `public/` se copia tal cual a `dist/` (sin hash en el nombre: al desplegar, conviene invalidarlos si cambian). Verificado: legible a 16 px en barras claras y oscuras; servidos con `image/svg+xml` e `image/png`; presentes en `dist/`.
 
 ### 4.5 Paso 8.4 — Página de Controles (2026-10-17, rama `feat/pagina-controles`)
+
+> **Reemplazado por §4.8 (D75):** `ControlsTable.tsx`, `ControlFormSheet.tsx`, `DeleteControlDialog.tsx` y los componentes `ui/*` de shadcn ya no existen. Hoy la pantalla usa `ControlsPage.tsx` + `ControlDetails.tsx` + `split-panel.tsx`, `ControlFormPage.tsx` y `DeleteControlModal.tsx` (Cloudscape). Lo que sigue se conserva como historial del paso 8.4.
 
 | Archivo | Para qué |
 |---|---|
@@ -373,16 +377,71 @@ Dependencia nueva: `@tanstack/react-query` **5.104.1** (publicada el 2026-10-02;
 
 **Verificación:** build, tipos, `npm audit` 0 y chequeo de identificadores OK; Chrome headless: totales correctos con los datos reales (3 controles: 0/2/1) y `?estado=REVIEW` abre Controles filtrado ("2 de 3").
 
+### 4.7 Migración a Cloudscape (2026-10-17, rama `feat/ui-cloudscape`, D75–D76)
+
+**Por qué:** el usuario quiso la estética de la consola de AWS, a partir de la demo de Refraxion (una herramienta de *posture review* hecha con Cloudscape). Se adoptó **Cloudscape Design System**, el sistema de diseño open source de AWS (Apache-2.0), en lugar de imitarlo con shadcn. Se toman la librería y los patrones, no la marca ni los textos de Refraxion.
+
+| Se conservó | Se reemplazó |
+|---|---|
+| `api.ts`, `use-controls.ts` (TanStack Query, optimista), `control-rules.ts`, `query-client.ts`, `config.ts`, `router.tsx` (carga bajo demanda), el proxy y el contrato | shadcn/ui, Tailwind, Radix, lucide, sonner → `AppLayout` + `TopNavigation` + `SideNavigation` + `BreadcrumbGroup`, `Table` + `useCollection` (búsqueda, orden, paginación, selección), `Modal` + `Form`, `Flashbar`, `Badge` de severidad, `StatusIndicator`, `ProgressBar`, `ContentLayout` |
+
+**Versiones** (≥ 14 días, D68): `@cloudscape-design/components` 3.0.1391, `global-styles` 1.0.71, `collection-hooks` 1.0.110. `npm audit`: 0.
+
+**Patrón de la consola en la tabla:** se **selecciona** un control y las acciones (Cambiar estado, Editar, Eliminar) se habilitan en el encabezado, como en la consola de AWS.
+
+**Teal como acento (D76):** `src/lib/brand-theme.ts` usa `applyTheme` para cambiar solo los tokens de acento (botón primario, links, foco, progreso), con valores para claro y oscuro.
+
+**Costo aceptado: el bundle.**
+
+| | shadcn | Cloudscape |
+|---|---|---|
+| JS inicial | 456 kB (145 kB gzip) | 1.563 kB (367 kB gzip) |
+| CSS inicial | 50 kB (9 kB gzip) | 849 kB (217 kB gzip: estilos de la consola y fuentes) |
+
+Mitigación posible más adelante: separar Cloudscape en un chunk propio (se cachea entre versiones de la app). Con la caché de CloudFront y del navegador, se descarga una vez.
+
+**Dos bugs encontrados al verificar:**
+
+1. **El modo oscuro no se aplicaba.** La clase `awsui-dark-mode` estaba en `<html>`, pero Cloudscape define los colores en `<body>`: las variables del `<body>` ganaban. Se movió la clase a `<body>` (`applyMode` sin `target`, y el script anti-parpadeo al principio del `<body>`).
+2. **El título "OpenAegis" se cortaba ("Open…").** `favicon.svg` no declaraba `width`/`height`: una imagen SVG solo con `viewBox` se trata como de 300×150 px y el logo aplastaba el título. Se agregaron `width="32" height="32"`.
+
+**Verificación:** build y tipos OK, `npm audit` 0, 42 tests y chequeo de identificadores OK; Chrome headless: Controles y Dashboard en oscuro y claro, título completo, móvil a 390 px (menú en ☰, acciones en filas, tabla con desplazamiento horizontal). **No verificado automáticamente:** las interacciones (seleccionar, crear, editar, cambiar estado, borrar, notificaciones): requiere la prueba manual de §4.5.
+
+### 4.8 Rediseño de la UI (2026-10-17, misma rama)
+
+A partir de la revisión del usuario:
+
+| Pedido | Cambio |
+|---|---|
+| Colores como antes | `brand-theme.ts` sobrescribe también **fondos, contenedores, inputs y bordes** con la paleta original (azul marino con tinte en oscuro, gris azulado en claro) y la barra superior con `#0b1524` en los dos temas (contexto `top-navigation`) |
+| "OpenAegis" repetido, footer del menú | El menú lateral no tiene encabezado ni footer |
+| Módulos del menú | Secciones: **Dashboard** · *Seguridad* → Controles (con contador) · *Ayuda* → Documentación, Reportar un problema |
+| Ícono de GitHub doble, botón de tema | Un solo ícono; el tema pasa a un menú **Preferencias** (⚙) |
+| Dashboard aburrido y con huecos | KPIs con íconos de estado, **torta** por estado (`PieChart`), **barras apiladas** severidad × estado (`BarChart`), "Para resolver primero" y "Actividad reciente" en una grilla de 6/6 |
+| Listado | Columnas Servicio y Categoría, fechas relativas, código como link a la edición, menú **Acciones**, y un **panel de detalle** (`SplitPanel`) al seleccionar un control, con sus datos, descripción, remediación y acciones |
+| Alta y edición | **Página completa** por secciones (Identificación, Evaluación, Detalle), severidad elegida en tarjetas (`Tiles`) con su explicación, estado con `SegmentedControl` y contador de caracteres. Rutas `/app/controles/nuevo` y `/app/controles/:id/editar`: la edición usa el dato de la caché o, si se entra por link directo, `GET /controls/{id}` (`useControl`) |
+
+La tabla pasó de `variant="full-page"` (sin borde: "flotaba") a **`variant="container"`** dentro de un `ContentLayout` con el título de la página arriba, igual que la lista de buckets de la consola de S3.
+
+El layout pasó de `AppLayout` a **`AppLayoutToolbar`** (el de la consola actual): la barra superior ocupa todo el ancho, debajo va una franja con el botón del menú y los breadcrumbs, y el menú lateral empieza recién ahí. La barra superior muestra el logo y el nombre. **Logo nuevo:** un escudo que también se lee como una "A". Su fuente es `brand/op-logo.svg` en la raíz del repo, vectorizado (negro sobre blanco). Está fuera de `frontend/public/` porque todo lo que hay ahí se publica con el sitio. De ahí salen tres archivos: `logo.svg` (solo el escudo en teal, sin fondo ni margen, para alinearlo con el botón del menú), `favicon.svg` (sobre fondo azul marino con esquinas redondeadas) y `apple-touch-icon.png` (180×180 con fondo completo, porque iOS redondea solo). El espacio a la izquierda del logo era el `padding` interno de 32 px de `TopNavigation`, que ningún token controla: se pisa en `src/styles/overrides.css` con un selector sobre una clase interna (`awsui_padding-box_*`). Es frágil: hay que revisarlo después de cada actualización de Cloudscape.
+
+**Pie de página** fijo, como el de la consola: `© <año> OpenAegis`, Privacidad y Términos (`footerSelector` del layout para que el contenido no quede tapado). Las páginas legales están [PENDIENTE]: hasta que existan, sus links llevan a la 404. No hay "Preferencias de cookies" porque la app no usa cookies (solo `localStorage` para el tema). El menú lateral no repite el nombre: secciones desplegables "General" (Dashboard) y "Seguridad" (Controles). Los links de ayuda quedan fijos al pie del menú. Las preferencias del panel de detalle (abajo o al costado) ahora se guardan en estado: antes la posición estaba fija en `"bottom"` sin handler y el diálogo no tenía efecto.
+
+Detalles de la verificación: la grilla de Cloudscape usa puntos de corte sobre el **ancho del contenido** (no de la ventana): con `m` los gráficos quedaban apilados y se pasó a `s`. Se ocultaron las etiquetas de la torta (se cortaban) y el eje Y del gráfico de barras muestra solo enteros.
+
+**Verificación:** build y tipos OK, `npm audit` 0, 42 tests y chequeo de identificadores OK; Chrome headless: Dashboard en oscuro y claro, Controles y el formulario de alta. **No verificado automáticamente:** el panel de detalle (requiere seleccionar una fila) y el flujo completo de alta, edición y borrado.
+
 ## 5. Plan de la etapa
 
 | Paso | Qué | Toca AWS | Estado |
 |---|---|---|---|
-| 8.1 | Proyecto Vite + React + TS, Tailwind y shadcn/ui | No | ✅ 2026-10-15 |
+| 8.1 | Proyecto Vite + React + TS (en 8.1 se usaron Tailwind y shadcn/ui; reemplazados por Cloudscape en 8.5b) | No | ✅ 2026-10-15 |
 | 8.2 | Cliente de la API tipado + proxy de desarrollo | No | ✅ 2026-10-16 |
 | 8.2b | Contrato OpenAPI + Swagger UI solo en desarrollo (D69) | No | ✅ 2026-10-16 |
 | 8.3 | Layout, menú, modo claro/oscuro (D71); `/` → `/app` | No | ✅ 2026-10-17 |
 | 8.4 | Página Controles (tabla, filtros, CRUD, estados, notificaciones) | No | ✅ 2026-10-17 (interacciones: verificación manual pendiente) |
 | 8.5 | Dashboard + carga de páginas bajo demanda | No | ✅ 2026-10-17 |
+| 8.5b | Migración a Cloudscape y rediseño de la UI (D75/D76) | No | ✅ 2026-10-17 |
 | 8.6 | Job de frontend en el CI | No | Pendiente |
 | 8.7 | CloudFront: error pages (D67) | Sí (configuración, sin costo) | Pendiente |
 | 8.8 | Deploy desde CloudShell (build, `s3 sync` con caché, invalidación) | Sí (escritura en S3) | Pendiente |

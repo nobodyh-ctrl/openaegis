@@ -1,6 +1,6 @@
 # Arquitectura implementada
 
-> Estado al 2026-10-12. Describe **solo lo que existe**. Lo planificado está en [ROADMAP.md](ROADMAP.md).
+> Estado al 2026-10-19. Describe **solo lo que existe**. Lo planificado está en [ROADMAP.md](ROADMAP.md).
 > Marcas: **[CONFIRMADO-REPO]** = leído en el código · **[CONVERSACIÓN]** = configurado a mano en la consola según el historial, sin verificación independiente · **[INCIERTO]** = verificar.
 
 ## 1. Vista general
@@ -32,7 +32,7 @@
                                   └───────────────────────────┘
 ```
 
-Todo en **`us-east-1`**, en una sola cuenta. Hoy el frontend **no** consume la API (solo hubo un `fetch` de prueba en la Etapa 5): son dos caminos independientes. El frontend real es la Etapa 8.
+Todo en **`us-east-1`**, en una sola cuenta. El frontend **desplegado** todavía no consume la API (CloudFront sigue sirviendo la página de prueba); en **desarrollo**, la SPA del repo ya la consume con `fetch` a `/api` (proxy de Vite + TanStack Query, Etapa 8). El build de la SPA todavía **no está desplegado**.
 
 **Diagramas del repo:**
 
@@ -83,7 +83,7 @@ handler.py ──► controls.py ──► validation.py      (sin AWS ni HTTP)
 | [handler.py](../backend/handler.py) | `ROUTES` (`routeKey` → función) y `lambda_handler`. Loguea `routeKey` + request ID de API Gateway + request ID de Lambda. Ruta desconocida → 404 | El event de API Gateway | DynamoDB, validaciones |
 | [controls.py](../backend/controls.py) | `list_controls`, `get_control`, `create_control`, `update_control`, `delete_control`. Decide los status codes | Reglas de negocio (400/404/409/201) | boto3 |
 | [validation.py](../backend/validation.py) | `SEVERITY_VALUES`, `STATUS_VALUES`, `FIELD_RULES`, `validate_fields(body, partial=False)`, `validate_control_id`. Devuelve **mensajes**, no respuestas HTTP | Qué es un control válido | AWS, HTTP |
-| [repository.py](../backend/repository.py) | `table` (creada en el cold start), `_scan_all` paginado, `list_controls`, `get_control`, `find_control_by_code`, `create_control`, `update_control`. Traduce `ConditionalCheckFailedException` a `None` | DynamoDB | HTTP |
+| [repository.py](../backend/repository.py) | `table` (creada en el cold start), `_scan_all` paginado, `list_controls`, `get_control`, `find_control_by_code`, `create_control`, `update_control`, `delete_control`. Traduce `ConditionalCheckFailedException` a `None` | DynamoDB | HTTP |
 | [responses.py](../backend/responses.py) | `build_response` (con `_json_default` para `Decimal`), `error_response`, `parse_json_body` | Payload 2.0 | DynamoDB |
 
 Por qué esta separación (D46): testear la validación sin AWS, agregar checks/findings al lado sin tocar lo existente y, en el Bloque B, poder cambiar solo `handler.py` si se migra a FastAPI.

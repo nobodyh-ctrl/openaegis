@@ -6,7 +6,7 @@
 
 El proyecto nació el **2026-09-29** como **"Cloud Security Checklist"**: un proyecto **educativo y de portfolio** para aprender AWS, Cloud y Cloud Security construyendo una aplicación real, con un asistente en rol de **tutor técnico exigente** (no generador de código).
 
-El nombre **OpenAegis** se adoptó el **2026-10-12**, al renombrar la sesión de trabajo y la carpeta local (`C:\AWS\aws-cloud-security-checklist` → `C:\AWS\openaegis`). El remoto de GitHub, los recursos de AWS (`cloud-sec-checklist-*`), el tag `Project` y el `frontend/index.html` siguen con el nombre anterior.
+El nombre **OpenAegis** se adoptó el **2026-10-12**, al renombrar la sesión de trabajo y la carpeta local (`C:\AWS\aws-cloud-security-checklist` → `C:\AWS\openaegis`). Los recursos de AWS (`cloud-sec-checklist-*`) y el tag `Project` siguen con el nombre anterior; el remoto de GitHub (`openaegis`) y el `frontend/index.html` ya usan el nombre nuevo (remoto actualizado el 2026-10-15).
 
 ## 2. Qué problema busca resolver
 
