@@ -1,6 +1,6 @@
 # Arquitectura implementada
 
-> Estado al 2026-10-19. Describe **solo lo que existe**. Lo planificado está en [ROADMAP.md](ROADMAP.md).
+> Estado al 2026-10-21. Describe **solo lo que existe**. Lo planificado está en [ROADMAP.md](ROADMAP.md).
 > Marcas: **[CONFIRMADO-REPO]** = leído en el código · **[CONVERSACIÓN]** = configurado a mano en la consola según el historial, sin verificación independiente · **[INCIERTO]** = verificar.
 
 ## 1. Vista general
@@ -36,7 +36,7 @@ Todo en **`us-east-1`**, en una sola cuenta. Desde el 2026-10-21 (paso 8.8, D79)
 
 **Diagramas del repo:**
 
-- [architecture/architecture.drawio.png](../architecture/architecture.drawio.png) — vista general, actualizada el 2026-10-13 (Etapas 0–6 implementadas; Cognito y checks como planificados). PNG editable con la extensión draw.io de VS Code (XML embebido; fondo blanco para el modo oscuro de GitHub).
+- [architecture/architecture.drawio.png](../architecture/architecture.drawio.png) — **diagrama histórico** del 2026-10-13 (Etapas 0–6 implementadas; Cognito y checks como planificados). No representa la arquitectura actual: no incluye el build ni el despliegue de la SPA de la Etapa 8; la vista general de arriba refleja ese estado. PNG editable con la extensión draw.io de VS Code (XML embebido; fondo blanco para el modo oscuro de GitHub).
 - [architecture/permissions-flow.drawio.png](../architecture/permissions-flow.drawio.png) — "quién le pide permiso a quién", flechas ① a ⑤.
 
 ## 2. Recursos de AWS [CONVERSACIÓN]

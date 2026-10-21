@@ -1,6 +1,6 @@
 # Roadmap
 
-> Estado al 2026-10-19. **Regla absoluta: terminar la V1 (Bloque A) antes de empezar cualquier cosa del Bloque B.**
+> Estado al 2026-10-21. **Regla absoluta: terminar la V1 (Bloque A) antes de empezar cualquier cosa del Bloque B.**
 > El Bloque B es una **visión**, no un plan cerrado: cada tecnología se agrega solo si resuelve un problema real (*problema → requisito → alternativas → trade-offs → decisión → implementación → testing → observación → documentación*).
 
 ## Bloque A — V1: Cloud Security Checklist / Assessment (read-only)

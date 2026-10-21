@@ -22,6 +22,10 @@ export default defineConfig(({ mode }) => {
   // .env.local no llega solo a process.env dentro de este archivo: hay que cargarlo
   const env = loadEnv(mode, process.cwd(), "");
 
+  if (mode === "production" && !env.VITE_API_URL?.trim()) {
+    throw new Error("VITE_API_URL es obligatoria para compilar en modo production.");
+  }
+
   return {
     plugins: [react(), openApiDevServer()],
     resolve: {

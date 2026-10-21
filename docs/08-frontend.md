@@ -126,7 +126,7 @@ export default defineConfig(({ mode }) => {
 | Variable | Dónde se usa | ¿Termina en el JavaScript del navegador? |
 |---|---|---|
 | `API_PROXY_TARGET` | Solo en `vite.config.ts`, para el proxy de desarrollo | **No.** Vite solo expone al código del navegador las variables que empiezan con `VITE_` |
-| `VITE_API_URL` | En el código del frontend, al compilar para producción | **Sí**: queda dentro del `.js` compilado. Si no está definida, el frontend usa `/api` (el proxy) |
+| `VITE_API_URL` | En el código del frontend, al compilar para producción | **Sí**: queda dentro del `.js` compilado. En modo `production` es obligatoria; en desarrollo, si no está definida, el frontend usa `/api` (el proxy) |
 
 **Detalle de seguridad:** el `server.proxy` existe **solo** en el servidor de desarrollo. `npm run build` no lo incluye en `dist/`. En producción no hay ningún proxy de Vite.
 
@@ -481,13 +481,17 @@ Select-String -Path dist\assets\index-*.js -Pattern "execute-api" -List   # veri
 tar.exe -a -c -f dist.zip -C dist .                                          # zip con rutas compatibles con Linux
 ```
 
-`VITE_API_URL` se escribe **dentro del `.js` al compilar** (`src/lib/api.ts`). Sin ella, la app pediría `/api/...` a CloudFront y, por la regla de la 8.7, recibiría `index.html`.
+`VITE_API_URL` se escribe **dentro del `.js` al compilar** (`src/lib/api.ts`). Si falta o está vacía, `vite.config.ts` aborta el build en modo `production`: evita que la app pida `/api/...` a CloudFront y, por la regla de la 8.7, reciba `index.html`.
 
 **2. Subida (CloudShell):**
 
 ```bash
 DIST=<distribution-id>
-BUCKET=$(aws s3api list-buckets --query "Buckets[?starts_with(Name,'cloud-sec-checklist-frontend')].Name" --output text)
+BUCKET=$(aws s3api list-buckets --query "Buckets[?starts_with(Name,'cloud-sec-checklist-frontend')].Name" --output text) || exit 1
+if [[ -z "$BUCKET" || "$BUCKET" == "None" || "$BUCKET" =~ [[:space:]] ]]; then
+  echo "Error: se esperaba exactamente un bucket frontend; revisá el resultado de list-buckets." >&2
+  exit 1
+fi
 CF=https://$(aws cloudfront get-distribution --id $DIST --query 'Distribution.DomainName' --output text)
 
 aws s3 ls s3://$BUCKET/ --recursive                                          # antes: solo index.html (de prueba)

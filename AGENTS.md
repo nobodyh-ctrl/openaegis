@@ -105,11 +105,11 @@ Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 | Ahora (V1, implementado) | V1, pendiente | Futuro (Bloque B, a evaluar) |
 |---|---|---|
-| Python 3.14 (arm64) · AWS Lambda · API Gateway HTTP API · DynamoDB · S3 · CloudFront (OAC) · IAM · CloudWatch Logs · boto3 (incluido en el runtime) | Frontend SPA: React + Vite + TypeScript + Cloudscape (Etapa 8) · Cognito · CloudWatch métricas/alarmas · checks con boto3 · AWS CDK (Python) · GitHub Actions (alcance por decidir) · moto [PROPUESTA] | Docker · Terraform · ECR · ECS/Fargate · FastAPI · OIDC · OpenTelemetry/X-Ray · SQS · Ansible · Trivy/Bandit/Semgrep/Checkov/ansible-lint · IA para explicar findings · k6 |
+| Python 3.14 (arm64) · AWS Lambda · API Gateway HTTP API · DynamoDB · S3 · CloudFront (OAC) · IAM · CloudWatch Logs · boto3 (incluido en el runtime) · Frontend SPA: React + Vite + TypeScript + Cloudscape (desplegado, paso 8.8) | Cognito · CloudWatch métricas/alarmas · checks con boto3 · AWS CDK (Python) · GitHub Actions (alcance por decidir) · moto [PROPUESTA] | Docker · Terraform · ECR · ECS/Fargate · FastAPI · OIDC · OpenTelemetry/X-Ray · SQS · Ansible · Trivy/Bandit/Semgrep/Checkov/ansible-lint · IA para explicar findings · k6 |
 
 ## 7. Cómo desplegar y probar (solo lo verificado)
 
-> ⚠️ Hoy **no hay IaC**: toda la infraestructura se creó a mano en la consola. El único despliegue que existe es el del **código** de la Lambda.
+> ⚠️ Hoy **no hay IaC**: toda la infraestructura se creó a mano en la consola. Se despliegan el **código** de la Lambda y el **build de la SPA** en S3 + CloudFront (paso 8.8, D79) [CONVERSACIÓN]. Procedimiento del frontend: [docs/08-frontend.md §4.11](docs/08-frontend.md#411-paso-88--deploy-de-la-spa-2026-10-21-d79).
 
 **Entorno del usuario:** Windows + PowerShell + VS Code. La CLI de AWS se usa **solo desde AWS CloudShell** (credenciales temporales de la sesión de consola). **El usuario no tiene access keys** (D4), así que **un agente local no puede ejecutar comandos de AWS**: se le proponen al usuario para que los corra en CloudShell.
 
@@ -154,7 +154,7 @@ aws lambda get-policy --function-name cloud-sec-checklist-api
 ```powershell
 cd frontend
 npm run dev        # http://localhost:5173 (la app) y /swagger.html (contrato); requiere frontend/.env.local con API_PROXY_TARGET
-npm run build      # verifica tipos y compila a frontend/dist/
+npm run build      # requiere VITE_API_URL; verifica tipos y compila a frontend/dist/ (paso 8.8)
 ```
 
 **Tests y chequeos locales** (desde la **raíz**; son los mismos que corre el CI en cada push):

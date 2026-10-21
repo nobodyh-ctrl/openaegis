@@ -149,6 +149,7 @@ npm audit             # falla el pipeline si hay vulnerabilidades
 ```
 
 - `cache: "npm"` con `cache-dependency-path: frontend/package-lock.json`: el runner guarda la caché de npm entre corridas.
+- El paso de build define `VITE_API_URL=https://example.invalid`: Vite exige esta variable en producción; el CI usa una URL ficticia porque solo valida la compilación y no despliega el resultado.
 - El `audit` **es bloqueante**: por diseño, una vulnerabilidad alta debe romper el CI.
 - `vite` 8.3.2 → **8.3.5**: el `audit` detectaba 1 vulnerabilidad *high* (`launch-editor`, GHSA-698v-4r3x-3vcv, ejecución de comandos en Windows al abrir el editor desde el server de dev). 8.3.5 se publicó el 2026-10-21, es decir **menos de 14 días antes**: es una **excepción a D68**, documentada como **D77** en [DECISIONS.md](DECISIONS.md). Es una dependencia de desarrollo: no llega al bundle que se despliega.
 
