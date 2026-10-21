@@ -19,8 +19,8 @@
                  ▼                             │ (resource-based policy)
         ┌─────────────────┐                    ▼
         │ S3 (privado)    │       ┌───────────────────────────┐      ┌────────────────────┐
-        │ index.html      │       │ Lambda cloud-sec-         │─────►│ CloudWatch Logs    │
-        │ (de prueba)     │       │ checklist-api (Py 3.14)   │ logs │ retención 1 semana │
+        │ SPA (build)     │       │ Lambda cloud-sec-         │─────►│ CloudWatch Logs    │
+        │ index + assets/ │       │ checklist-api (Py 3.14)   │ logs │ retención 1 semana │
         └─────────────────┘       └────────────┬──────────────┘      └────────────────────┘
                                                │ execution role:
                                                │ Scan/Get/Put/Update/DeleteItem
@@ -32,7 +32,7 @@
                                   └───────────────────────────┘
 ```
 
-Todo en **`us-east-1`**, en una sola cuenta. El frontend **desplegado** todavía no consume la API (CloudFront sigue sirviendo la página de prueba); en **desarrollo**, la SPA del repo ya la consume con `fetch` a `/api` (proxy de Vite + TanStack Query, Etapa 8). El build de la SPA todavía **no está desplegado**.
+Todo en **`us-east-1`**, en una sola cuenta. Desde el 2026-10-21 (paso 8.8, D79) CloudFront sirve el **build de la SPA**, que consume la API con `fetch` a la URL de API Gateway inyectada al compilar (`VITE_API_URL`). En **desarrollo**, la SPA usa `/api` (proxy de Vite + TanStack Query).
 
 **Diagramas del repo:**
 

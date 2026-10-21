@@ -463,6 +463,80 @@ El código de respuesta tiene que ser **200**: con 403 el navegador recibe la ap
 
 **Debugging en el camino:** en CloudShell, los marcadores `<distribucion>` y `<distribution-id>` hay que reemplazarlos enteros (bash lee `<` como redirección). El **ID** de la distribución (`E...`, va en `--id`) y el **dominio** (`d....cloudfront.net`, va en `curl`) son datos distintos: el ID en el `curl` no resuelve DNS y, con `-s`, curl no muestra el error (usar `-sS`); el dominio en `--id` da `Id format is invalid`. Para no confundirlos: `DIST=<distribution-id>` y `CF=https://$(aws cloudfront get-distribution --id $DIST --query 'Distribution.DomainName' --output text)`.
 
+### 4.11 Paso 8.8 — Deploy de la SPA (2026-10-21, D79)
+
+**Flujo** [CONVERSACIÓN]: build en la PC del usuario → `dist.zip` subido a CloudShell (*Actions → Upload file*) → `s3 sync`/`s3 cp` con `Cache-Control` por tipo de archivo → invalidación de `/` y `/index.html`.
+
+**Por qué el build no se hace en CloudShell (D79):** `npm ci` y `vite build` ejecutan código de ~200 MB de dependencias de terceros. En CloudShell correrían con las credenciales de `AdministratorAccess` de la sesión; en la PC corren **sin credenciales de AWS** (D4). CloudShell solo ejecuta la CLI de AWS. Es la misma lógica que D59 (CI sin credenciales). Desventaja: un paso manual más (subir el zip), que desaparece con CDK (Etapa 12).
+
+**1. Build (PowerShell, en `main` limpio):**
+
+```powershell
+cd frontend
+$env:VITE_API_URL = "https://<api-id>.execute-api.us-east-1.amazonaws.com"   # mismo valor que API_PROXY_TARGET de .env.local
+npm ci
+npm run build
+Remove-Item Env:VITE_API_URL
+Select-String -Path dist\assets\index-*.js -Pattern "execute-api" -List   # verifica que la URL quedó en el build
+tar.exe -a -c -f dist.zip -C dist .                                          # zip con rutas compatibles con Linux
+```
+
+`VITE_API_URL` se escribe **dentro del `.js` al compilar** (`src/lib/api.ts`). Sin ella, la app pediría `/api/...` a CloudFront y, por la regla de la 8.7, recibiría `index.html`.
+
+**2. Subida (CloudShell):**
+
+```bash
+DIST=<distribution-id>
+BUCKET=$(aws s3api list-buckets --query "Buckets[?starts_with(Name,'cloud-sec-checklist-frontend')].Name" --output text)
+CF=https://$(aws cloudfront get-distribution --id $DIST --query 'Distribution.DomainName' --output text)
+
+aws s3 ls s3://$BUCKET/ --recursive                                          # antes: solo index.html (de prueba)
+aws apigatewayv2 get-apis --query 'Items[].CorsConfiguration.AllowOrigins'   # tiene que incluir $CF
+aws s3 cp s3://$BUCKET/index.html ~/index-prueba.html                        # backup: no hay versioning (D10)
+rm -rf ~/dist && mkdir ~/dist && unzip -q ~/dist.zip -d ~/dist
+
+# Orden: assets → public/ → index.html
+aws s3 sync ~/dist/assets s3://$BUCKET/assets --cache-control "public, max-age=31536000, immutable"
+aws s3 sync ~/dist s3://$BUCKET --exclude "assets/*" --exclude "index.html" --cache-control "public, max-age=86400"
+aws s3 cp   ~/dist/index.html s3://$BUCKET/index.html --cache-control "no-cache"
+
+INV=$(aws cloudfront create-invalidation --distribution-id $DIST --paths "/" "/index.html" --query 'Invalidation.Id' --output text)
+aws cloudfront wait invalidation-completed --distribution-id $DIST --id $INV
+```
+
+| Decisión (D79) | Por qué |
+|---|---|
+| `assets/*`: `public, max-age=31536000, immutable` | El nombre lleva el hash del contenido: un nombre dado nunca cambia |
+| `index.html`: `no-cache` | Dice qué `.js` cargar; tiene que ser siempre el vigente |
+| `favicon.svg`, `logo.svg`, `apple-touch-icon.png`: `public, max-age=86400` | Vienen de `public/` y **no tienen hash**: con `immutable` un logo nuevo no se vería nunca. Hueco del plan original de §2.8 |
+| Orden assets → `index.html` | Si `index.html` llegara primero, podría apuntar a un `.js` que todavía no existe: S3 da 403, la regla de la 8.7 devuelve HTML y la pantalla queda en blanco (error de *MIME type*) |
+| Sin `--delete` | Una pestaña abierta con el `index.html` anterior sigue pidiendo sus chunks bajo demanda (`ControlsPage-<hash-viejo>.js`, paso 8.5). Si se borraran, recibiría HTML y la página no cargaría. Costo: unos KB en S3 |
+| Invalidar `/` y `/index.html` | Son dos claves de caché distintas: `/` se sirve por el *default root object* |
+
+**Verificación** [CONVERSACIÓN]:
+
+| Prueba | Resultado |
+|---|---|
+| CORS de la API | `AllowOrigins` incluye el dominio de CloudFront |
+| `curl -sSI $CF/` | `content-type: text/html`, `cache-control: no-cache` |
+| `<title>` | `OpenAegis` (antes: la página de prueba) |
+| `curl -sSI $CF/assets/index-<hash>.js` | `content-type: text/javascript`, `cache-control: public, max-age=31536000, immutable` |
+| `curl -sSI $CF/app/controles` | `HTTP/2 200` |
+| Navegador | Dashboard con datos, requests a la API con 200 y sin errores de CORS, recarga en `/app/controles` OK, edición de un control OK |
+
+El UUID del control en la URL de edición (`/app/controles/<uuid>/editar`) es esperable: identifica el recurso, no es un secreto. `uuid4` evita la enumeración, pero **no** es control de acceso: eso llega con Cognito (Etapa 9).
+
+**Costo:** ≈ USD 0 (~20 `PUT` a S3; invalidación de 2 paths dentro de las 1.000 gratis por mes).
+
+**Cómo revertir:**
+
+```bash
+aws s3 cp ~/index-prueba.html s3://$BUCKET/index.html
+aws s3 rm s3://$BUCKET/assets --recursive        # ⚠️ permanente (sin versioning)
+aws s3 rm s3://$BUCKET/favicon.svg; aws s3 rm s3://$BUCKET/logo.svg; aws s3 rm s3://$BUCKET/apple-touch-icon.png
+aws cloudfront create-invalidation --distribution-id $DIST --paths "/*"
+```
+
 ## 5. Plan de la etapa
 
 | Paso | Qué | Toca AWS | Estado |
@@ -476,5 +550,5 @@ El código de respuesta tiene que ser **200**: con 403 el navegador recibe la ap
 | 8.5b | Migración a Cloudscape y rediseño de la UI (D75/D76) | No | ✅ 2026-10-17 |
 | 8.6 | Job de frontend en el CI (`npm ci`, `typecheck`, `build`, `audit`) | No | ✅ 2026-10-21 (PR #5): extiende el job `checks`; `vite` 8.3.2 → 8.3.5 por un fix HIGH (excepción D77). Detalle en [13a §4.6](13a-ci-minimo.md) |
 | 8.7 | CloudFront: error pages (D67) | Sí (configuración, sin costo) | ✅ 2026-10-21: 403 y 404 → `/index.html` con 200; `/app/controles` pasó de 403 a 200. Detalle en §4.10 |
-| 8.8 | Deploy desde CloudShell (build, `s3 sync` con caché, invalidación) | Sí (escritura en S3) | Pendiente |
+| 8.8 | Deploy (build local, `s3 sync` con caché desde CloudShell, invalidación) | Sí (escritura en S3) | ✅ 2026-10-21: SPA desplegada; build en la PC sin credenciales de AWS (D79). Detalle en §4.11 |
 | 8.9 | Verificación en el navegador, checkpoint y cierre de este doc | — | Pendiente |

@@ -3,7 +3,7 @@
 > Aplicación serverless en AWS para gestionar controles de seguridad cloud y, más adelante, evaluarlos con checks automáticos de solo lectura.
 > Proyecto **educativo y de portfolio**, construido etapa por etapa para entender cada servicio de AWS que usa. *(Antes: "Cloud Security Checklist".)*
 
-**Estado:** V1 en desarrollo. Etapas 0–7 completas (CRUD de controles funcionando y permisos auditados) + CI mínimo; la Etapa 8 (frontend) está **en curso**: la SPA con Cloudscape está implementada en el repo y verificada en local, pero **todavía no está desplegada** en AWS. Ver [Roadmap](#roadmap).
+**Estado:** V1 en desarrollo. Etapas 0–7 completas (CRUD de controles funcionando y permisos auditados) + CI mínimo; la Etapa 8 (frontend) está **en curso**: la SPA con Cloudscape está implementada y **desplegada** en S3 + CloudFront; falta la verificación final (8.9). Ver [Roadmap](#roadmap).
 
 ---
 
@@ -19,8 +19,8 @@ En las próximas etapas va a ejecutar **checks automáticos de solo lectura** co
 
 | Funcionalidad | Estado |
 |---|---|
-| Frontend estático servido por CloudFront desde un bucket S3 privado | ✅ Solo una página de prueba (el build de la SPA todavía no se desplegó) |
-| SPA (React + Vite + TypeScript + Cloudscape, D75/D76) | ✅ Implementada y verificada en local; **no desplegada** en AWS |
+| Frontend estático servido por CloudFront desde un bucket S3 privado | ✅ Sirve el build de la SPA |
+| SPA (React + Vite + TypeScript + Cloudscape, D75/D76) | ✅ Desplegada (build local + `s3 sync` desde CloudShell, D79) |
 | API HTTP con throttling y CORS restringido | ✅ |
 | `GET /controls` — listar controles | ✅ |
 | `GET /controls/{id}` — obtener un control | ✅ |
