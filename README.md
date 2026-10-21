@@ -27,8 +27,8 @@ En las próximas etapas va a ejecutar **checks automáticos de solo lectura** co
 | `POST /controls` — crear un control (validación de tipos, largos, enums, `code` único, allowlist de campos) | ✅ |
 | `PATCH /controls/{id}` — editar campos o cambiar el estado (404 sin crear items, 409 por `code` de otro control, allowlist) | ✅ |
 | `DELETE /controls/{id}` — eliminar un control (404 si no existe, devuelve el item borrado) | ✅ |
-| CI con GitHub Actions: tests unitarios + chequeo de identificadores reales en cada push, sin credenciales de AWS | ✅ |
-| Autenticación, checks, findings, score, IaC, job de frontend en CI, tests de `controls.py`/API | 🔜 Ver roadmap |
+| CI con GitHub Actions: tests unitarios, chequeo de identificadores reales y verificación del frontend (`npm ci`, typecheck, build, `npm audit`), sin credenciales de AWS | ✅ |
+| Autenticación, checks, findings, score, IaC, tests de `controls.py`/API | 🔜 Ver roadmap |
 
 ## Arquitectura
 

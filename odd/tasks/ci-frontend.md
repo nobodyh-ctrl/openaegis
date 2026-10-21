@@ -17,3 +17,4 @@ T5: Commit en rama `feat/ci-frontend-job`.
 ## Log
 L1: Usuario autorizó implementar 8.6 (CI del frontend) con ODD.
 L2: 2026-10-21 — `npm audit` fallaba con 1 HIGH (`vite` 8.3.2). Decisión del usuario: opción recomendada (upgrade a 8.3.5 con excepción D77 documentada). Verificación tras upgrade: `npm audit` → 0 vulnerabilities; `npm run typecheck` → OK; `npm run build` → OK (warning chunk >500kB ya existente, no nuevo); `npm ci` → OK.
+L3: 2026-10-21 — PR #5 mergeado en `main` con `checks` en verde. Nota: `setup-node` quedó fijado en v7.0.0 (SHA `8207627…`), no en v4.4.0 como decían S3/T4. El lint del contrato OpenAPI no se incluyó: queda pendiente en `docs/08-frontend.md` §4.3.

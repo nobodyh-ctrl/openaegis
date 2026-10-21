@@ -1,6 +1,6 @@
 # AGENTS.md — Instrucciones para agentes que trabajen en OpenAegis
 
-> Última actualización: 2026-10-19. Este archivo es la **puerta de entrada** para cualquier sesión nueva (Claude Code, Amazon Q u otro agente). Leelo completo antes de proponer cambios.
+> Última actualización: 2026-10-21. Este archivo es la **puerta de entrada** para cualquier sesión nueva (Claude Code, Amazon Q u otro agente). Leelo completo antes de proponer cambios.
 
 Convenciones de estado usadas en toda la documentación:
 
@@ -66,7 +66,8 @@ openaegis/
 ├── tests/                    ← tests unitarios con unittest (sin AWS): validation, responses, check_identifiers
 ├── scripts/
 │   └── check_identifiers.py  ← falla si un archivo versionado tiene un ID real (cuenta, API, CloudFront, access key)
-└── .github/workflows/ci.yml  ← CI mínimo (Etapa 13a): tests + chequeo de identificadores, sin credenciales de AWS
+├── odd/tasks/                ← notas de tareas en formato ODD (Specs / Tasks / Log); su uso como metodología del proyecto está pendiente de decisión
+└── .github/workflows/ci.yml  ← job `checks`: tests + chequeo de identificadores (Etapa 13a) + frontend (`npm ci`, typecheck, build, audit; paso 8.6), sin credenciales de AWS
 ```
 
 Localmente existe `lambda.zip` (artefacto de deploy, ignorado por `.gitignore`). No hay `infra/` todavía (CDK, Etapa 12).
@@ -82,10 +83,11 @@ Localmente existe `lambda.zip` (artefacto de deploy, ignorado por `.gitignore`).
 | Tabla DynamoDB `cloud-sec-checklist-controls` (Etapa 6) | ✅ [CONVERSACIÓN] |
 | `GET /controls`, `GET /controls/{id}`, `POST /controls` | ✅ código [CONFIRMADO-REPO] + pruebas con `curl` [CONVERSACIÓN] |
 | `PATCH /controls/{id}` | ✅ código [CONFIRMADO-REPO] + 11 pruebas con `curl` [CONVERSACIÓN, 2026-10-13] |
-| `DELETE /controls/{id}` | ✅ código [CONFIRMADO-REPO, sin commitear al 2026-10-13] + 6 pruebas con `curl` [CONVERSACIÓN] |
+| `DELETE /controls/{id}` | ✅ código [CONFIRMADO-REPO] + 6 pruebas con `curl` [CONVERSACIÓN] |
 | Eliminar `POST /hello` (ruta de prueba) | ✅ código, ruta y statement eliminados (verificado 2026-10-13) |
 | IAM auditado (Etapa 7) | ✅ D56–D58 aplicados y verificados (2026-10-15) |
 | CI mínimo (Etapa 13a): 42 tests + chequeo de identificadores | ✅ [CONFIRMADO-REPO] + run verde en GitHub (2026-10-15) |
+| Job de frontend en el CI (paso 8.6): `npm ci`, typecheck, build, `npm audit` | ✅ [CONFIRMADO-REPO] + PR #5 mergeado con `checks` en verde (2026-10-21) |
 | Frontend SPA (React + Vite + TS + Cloudscape, D75/D76) | ✅ código [CONFIRMADO-REPO] — implementado y verificado en local; **no desplegado** en AWS (CloudFront sigue sirviendo la página de prueba) |
 | Cognito, CloudWatch avanzado, checks + findings, CDK, `cdk synth` en CI, tests de `controls.py` | [PENDIENTE] (Etapas 9–16) |
 
