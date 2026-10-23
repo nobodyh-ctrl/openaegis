@@ -8,7 +8,9 @@ import BreadcrumbGroup, { type BreadcrumbGroupProps } from "@cloudscape-design/c
 import Flashbar from "@cloudscape-design/components/flashbar";
 import SideNavigation from "@cloudscape-design/components/side-navigation";
 import TopNavigation from "@cloudscape-design/components/top-navigation";
-import { matchPath, Outlet, useLocation } from "react-router";
+import type { User } from "oidc-client-ts";
+import { matchPath, Outlet, useLoaderData, useLocation } from "react-router";
+import { logout } from "@/lib/auth";
 import { AWS_REGION, REPO_URL } from "@/lib/config";
 import { useFollow } from "@/lib/navigation";
 import { useNotifications } from "@/lib/notifications";
@@ -47,6 +49,9 @@ export function AppLayout() {
 
 function Shell() {
   const { pathname } = useLocation();
+  // El loader de /app (requireSession) ya garantizó que hay sesión: acá solo leemos quién es.
+  const user = useLoaderData() as User;
+  const email = typeof user.profile.email === "string" ? user.profile.email : "Mi cuenta";
   const follow = useFollow();
   const { theme, setTheme } = useTheme();
   const { items } = useNotifications();
@@ -75,6 +80,17 @@ function Shell() {
               onItemClick: ({ detail }) => setTheme(detail.id === "light" ? "light" : "dark"),
             },
             { type: "button", iconSvg: GITHUB_ICON, ariaLabel: "Repositorio en GitHub (abre en otra pestaña)", title: "GitHub", href: REPO_URL, target: "_blank", rel: "noopener noreferrer" },
+            {
+              // El email sale del ID token (claim "email"): para esto existe el ID token.
+              type: "menu-dropdown",
+              iconName: "user-profile",
+              text: email,
+              ariaLabel: `Cuenta: ${email}`,
+              items: [{ id: "logout", text: "Cerrar sesión" }],
+              onItemClick: ({ detail }) => {
+                if (detail.id === "logout") void logout();
+              },
+            },
           ]}
         />
       </div>
