@@ -4,7 +4,9 @@
  * Espejo del contrato del backend (backend/validation.py y backend/controls.py).
  */
 
-export const SEVERITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
+import { getAccessToken } from "./auth";
+
+export const SEVERITIES =["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
 export const STATUSES = ["PASS", "REVIEW", "FAIL"] as const;
 
 export type Severity = (typeof SEVERITIES)[number];
@@ -66,12 +68,18 @@ function errorMessage(data: unknown, status: number): string {
 }
 
 async function request<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (init.body !== undefined) headers["Content-Type"] = "application/json";
+  // Etapa 9: el access token (no el ID token) identifica al usuario ante la API.
+  // Con este header, hasta un GET dispara preflight de CORS (por eso la 9.2 agregó "authorization").
+  const token = await getAccessToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
   let response: Response;
   try {
     response = await fetch(`${BASE_URL}${path}`, {
       method: init.method ?? "GET",
-      // Content-Type solo si hay body: un GET sin headers extra es una "simple request" (sin preflight)
-      headers: init.body !== undefined ? { "Content-Type": "application/json" } : undefined,
+      headers,
       body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
     });
   } catch {
