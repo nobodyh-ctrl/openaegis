@@ -1,6 +1,6 @@
 # AGENTS.md — Instrucciones para agentes que trabajen en OpenAegis
 
-> Última actualización: 2026-10-21. Este archivo es la **puerta de entrada** para cualquier sesión nueva (Claude Code, Amazon Q u otro agente). Leelo completo antes de proponer cambios.
+> Última actualización: 2026-10-24. Este archivo es la **puerta de entrada** para cualquier sesión nueva (Claude Code, Amazon Q u otro agente). Leelo completo antes de proponer cambios.
 
 Convenciones de estado usadas en toda la documentación:
 
@@ -54,15 +54,16 @@ openaegis/
 │   ├── responses.py          ← formato de entrada/salida de API Gateway (payload 2.0)
 │   └── openapi.yaml          ← CONTRATO de la API (OpenAPI 3.1, D69): actualizarlo si cambia el backend
 ├── docs/
-│   ├── 00..08-*.md, 13a-ci-minimo.md  ← un doc por etapa
-│   ├── architecture-decisions/  ← ADR-001 a ADR-006 (decisiones grandes)
+│   ├── 00..09-*.md, 13a-ci-minimo.md  ← un doc por etapa
+│   ├── architecture-decisions/  ← ADR-001 a ADR-007 (decisiones grandes)
 │   ├── PROJECT_CONTEXT.md · ARCHITECTURE.md · ROADMAP.md · DECISIONS.md · LEARNING_LOG.md
 ├── frontend/                 ← SPA React + Vite + TS + Cloudscape Design System (D75, teal como acento D76; Etapa 8). Dependencias: D68
 │   ├── .npmrc                ← save-exact, ignore-scripts
+│   ├── .env.example          ← plantilla de .env.local (ignorado): API_PROXY_TARGET y VITE_COGNITO_* con marcadores
 │   ├── vite.config.ts        ← alias @/, proxy de desarrollo /api/ (API_PROXY_TARGET en .env.local) y /openapi.yaml
 │   ├── swagger.html          ← Swagger UI SOLO en desarrollo (http://localhost:5173/swagger.html)
 │   ├── public/               ← se copia tal cual a dist/: favicon.svg, apple-touch-icon.png
-│   └── src/                  ← main.tsx (providers), router.tsx, pages/, components/ (layout, controls), lib/ (api, use-controls, control-rules, theme, brand-theme, notifications, navigation, query-client, config)
+│   └── src/                  ← main.tsx (providers), router.tsx, pages/, components/ (layout, controls), lib/ (api, auth, use-controls, control-rules, theme, brand-theme, notifications, navigation, query-client, config). `lib/auth.ts` es el único que usa `oidc-client-ts`
 ├── tests/                    ← tests unitarios con unittest (sin AWS): validation, responses, check_identifiers
 ├── scripts/
 │   └── check_identifiers.py  ← falla si un archivo versionado tiene un ID real (cuenta, API, CloudFront, access key)
@@ -89,7 +90,8 @@ Localmente existe `lambda.zip` (artefacto de deploy, ignorado por `.gitignore`).
 | CI mínimo (Etapa 13a): 42 tests + chequeo de identificadores | ✅ [CONFIRMADO-REPO] + run verde en GitHub (2026-10-15) |
 | Job de frontend en el CI (paso 8.6): `npm ci`, typecheck, build, `npm audit` | ✅ [CONFIRMADO-REPO] + PR #5 mergeado con `checks` en verde (2026-10-21) |
 | Frontend SPA (React + Vite + TS + Cloudscape, D75/D76) | ✅ código [CONFIRMADO-REPO] — implementado y verificado en local; **desplegado** en CloudFront el 2026-10-21 (paso 8.8, D79) y CRUD verificado en producción (8.9) [CONVERSACIÓN]. **Etapa 8 completa** |
-| Cognito, CloudWatch avanzado, checks + findings, CDK, `cdk synth` en CI, tests de `controls.py` | [PENDIENTE] (Etapas 9–16) |
+| Cognito (Etapa 9): User Pool con MFA, login en la SPA, JWT authorizer en las 5 rutas | 🟡 casi completa [CONVERSACIÓN, 2026-10-24]: verificado en producción; falta el deploy del PR #13 (`401` → login) y el checkpoint. [docs/09-cognito.md](docs/09-cognito.md) |
+| CloudWatch avanzado, checks + findings, CDK, `cdk synth` en CI, tests de `controls.py` | [PENDIENTE] (Etapas 10–16) |
 
 Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -105,7 +107,7 @@ Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 | Ahora (V1, implementado) | V1, pendiente | Futuro (Bloque B, a evaluar) |
 |---|---|---|
-| Python 3.14 (arm64) · AWS Lambda · API Gateway HTTP API · DynamoDB · S3 · CloudFront (OAC) · IAM · CloudWatch Logs · boto3 (incluido en el runtime) | Frontend SPA: React + Vite + TypeScript + Cloudscape (Etapa 8) · Cognito · CloudWatch métricas/alarmas · checks con boto3 · AWS CDK (Python) · GitHub Actions (alcance por decidir) · moto [PROPUESTA] | Docker · Terraform · ECR · ECS/Fargate · FastAPI · OIDC · OpenTelemetry/X-Ray · SQS · Ansible · Trivy/Bandit/Semgrep/Checkov/ansible-lint · IA para explicar findings · k6 |
+| Python 3.14 (arm64) · AWS Lambda · API Gateway HTTP API (+ JWT authorizer) · DynamoDB · S3 · CloudFront (OAC) · IAM · CloudWatch Logs · boto3 (incluido en el runtime) · Cognito User Pool · SPA React + Vite + TypeScript + Cloudscape + `oidc-client-ts` | CloudWatch métricas/alarmas · checks con boto3 · AWS CDK (Python) · GitHub Actions (alcance por decidir) · moto [PROPUESTA] | Docker · Terraform · ECR · ECS/Fargate · FastAPI · OIDC · OpenTelemetry/X-Ray · SQS · Ansible · Trivy/Bandit/Semgrep/Checkov/ansible-lint · IA para explicar findings · k6 |
 
 ## 7. Cómo desplegar y probar (solo lo verificado)
 
@@ -122,14 +124,18 @@ Compress-Archive -Path backend\*.py -DestinationPath lambda.zip -Force
 
 Después: consola → Lambda `cloud-sec-checklist-api` → **Code → Upload from → .zip file** → Save. Handler configurado: **`handler.lambda_handler`** (se configura una sola vez). Variable de entorno: `TABLE_NAME=cloud-sec-checklist-controls`.
 
-**Pruebas** (desde CloudShell; reemplazar los marcadores, que en bash `<` y `>` son redirecciones):
+**Pruebas** (desde CloudShell). Desde la Etapa 9 la API exige un **access token** (sin token: `401`). Se copia de la SPA logueada (F12 → Console: `copy(JSON.parse(sessionStorage.getItem(Object.keys(sessionStorage).find(k => k.startsWith("oidc.user")))).access_token)`) y se carga con `read -rs`, para que no quede en pantalla ni en el historial. **Nunca pegar tokens en el chat.** Dura 1 hora.
 
 ```bash
-API=https://<api-id>.execute-api.us-east-1.amazonaws.com
-curl -i $API/controls
-curl -i $API/controls/<id>
-curl -i -X POST  $API/controls -H "Content-Type: application/json" -d '{"code":"X-1","title":"T","service":"S3","category":"Data protection","severity":"LOW"}'
-curl -i -X PATCH $API/controls/<id> -H "Content-Type: application/json" -d '{"status":"FAIL"}'
+APIID=$(aws apigatewayv2 get-apis --query "Items[?Name=='cloud-sec-checklist-http-api'].ApiId" --output text)
+API=https://$APIID.execute-api.us-east-1.amazonaws.com
+read -rs ACCESS && echo "cargado (${#ACCESS} caracteres)"
+AUTH="Authorization: Bearer $ACCESS"
+curl -i $API/controls                      # 401 sin token
+curl -i $API/controls -H "$AUTH"
+curl -i $API/controls/<id> -H "$AUTH"    # reemplazar <id> entero: en bash < y > son redirecciones
+curl -i -X POST  $API/controls -H "$AUTH" -H "Content-Type: application/json" -d '{"code":"X-1","title":"T","service":"S3","category":"Data protection","severity":"LOW"}'
+curl -i -X PATCH $API/controls/<id> -H "$AUTH" -H "Content-Type: application/json" -d '{"status":"FAIL"}'
 ```
 
 **Logs** (todos los streams):
@@ -149,11 +155,11 @@ aws lambda get-function-configuration --function-name cloud-sec-checklist-api
 aws lambda get-policy --function-name cloud-sec-checklist-api
 ```
 
-**Frontend** (los comandos de `npm` se corren **dentro de `frontend/`**, donde está el `package.json`; desde la raíz dan `ENOENT`, o se usa `npm --prefix frontend run dev`):
+**Frontend** (los comandos de `npm` se corren en **PowerShell**, nunca en WSL: `node_modules` tiene binarios nativos de Windows y desde WSL falla con `typescript-linux-x64`; y **dentro de `frontend/`**, donde está el `package.json`; desde la raíz dan `ENOENT`, o se usa `npm --prefix frontend run dev`):
 
 ```powershell
 cd frontend
-npm run dev        # http://localhost:5173 (la app) y /swagger.html (contrato); requiere frontend/.env.local con API_PROXY_TARGET
+npm run dev        # http://localhost:5173 (la app) y /swagger.html (contrato); requiere frontend/.env.local con API_PROXY_TARGET y las 3 VITE_COGNITO_* (ver .env.example)
 npm run build      # verifica tipos y compila a frontend/dist/
 ```
 
@@ -173,7 +179,7 @@ Cubren `validation.py`, `responses.py` y el propio chequeo. `controls.py` todav�
 3. **No implementar funcionalidades durante una tarea de documentación**, y viceversa: no mezclar refactor con funcionalidad nueva en un mismo commit.
 4. **AWS:** no desplegar, modificar ni destruir recursos, ni generar gastos, sin autorización explícita. **Advertir el costo antes** de crear cualquier recurso y **verificar precios y Free Tier en la documentación oficial**. Nunca asumir que algo es gratis.
 5. ⚠️ **Free plan:** crear una **AWS Organization**, activar **IAM Identity Center** o **Control Tower**, o hacer clic en *upgrade plan* **pasa la cuenta al Paid plan y hace vencer los créditos**. Nunca sugerirlo sin advertirlo.
-6. **Secretos e identificadores:** nunca escribir en el repo el ID de cuenta, el ID de la API, el dominio de CloudFront, el sufijo del bucket, el nombre del IAM user, IDs de distribución ni emails. Usar `<cuenta>`, `<api-id>`, `<distribucion>`, `<sufijo>`, `<admin-user>`, `<distribution-id>`. **Recordarle al usuario** que tape esos datos cuando pega salidas.
+6. **Secretos e identificadores:** nunca escribir en el repo el ID de cuenta, el ID de la API, el dominio de CloudFront, el sufijo del bucket, el nombre del IAM user, IDs de distribución ni emails. Usar `<cuenta>`, `<api-id>`, `<distribucion>`, `<sufijo>`, `<admin-user>`, `<distribution-id>` y, desde la Etapa 9, `<user-pool-id>`, `<client-id>`, `<dominio-cognito>`. **Nunca** pedir ni aceptar tokens de Cognito o un `code` en el chat: para probar, `read -rs`. **Recordarle al usuario** que tape esos datos cuando pega salidas.
 7. **`main` está protegida (D74): todo cambio va en una rama `tipo/descripcion` y entra por PR con el check `checks` en verde.** Antes de escribir, `git switch -c <rama>` desde `main` actualizada. **Commits, pushes y cambios destructivos solo a pedido explícito.** Mensajes en español, estilo `tipo(ámbito): descripción` (ver `git log`), con la atribución que indique el entorno.
 8. **Least privilege** en cada permiso nuevo: acciones concretas sobre ARNs concretos. Los checks de la V1 son **read-only**.
 9. **Código:** Python simple, sin frameworks ni dependencias salvo que resuelvan un problema real. `validation.py` no importa AWS ni HTTP; `repository.py` es el único que importa boto3. Atrapar **solo** las excepciones que se saben manejar (nada de `except Exception`).
@@ -197,8 +203,8 @@ El usuario pidió un **tutor técnico exigente, no un generador de código**. Re
 ## 10. Cómo documentar
 
 - **Un doc por etapa** en `docs/NN-tema.md`, con la estructura de los existentes: objetivo, conceptos, decisiones (`D#`), configuración, verificación, debugging, costos, relación con Cloud Security, cómo revertir, cosas que NO hacer. Con marcadores en lugar de identificadores reales.
-- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D80**), y al doc de su etapa.
-- **ADRs** (`docs/architecture-decisions/NNN-tema.md`, D55): solo para decisiones **grandes**; `DECISIONS.md` es el índice de todas. Formato: Contexto, Decisión, Por qué, Alternativas consideradas, Ventajas, Desventajas, Consideraciones de seguridad, Consideraciones de costo, Consecuencias, Evolución futura (más estado, fecha y decisiones relacionadas). Existen ADR-001 a ADR-006; el siguiente es **007**. Al crear uno, agregarlo a la tabla de `DECISIONS.md`.
+- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D84**), y al doc de su etapa.
+- **ADRs** (`docs/architecture-decisions/NNN-tema.md`, D55): solo para decisiones **grandes**; `DECISIONS.md` es el índice de todas. Formato: Contexto, Decisión, Por qué, Alternativas consideradas, Ventajas, Desventajas, Consideraciones de seguridad, Consideraciones de costo, Consecuencias, Evolución futura (más estado, fecha y decisiones relacionadas). Existen ADR-001 a ADR-007; el siguiente es **008**. Al crear uno, agregarlo a la tabla de `DECISIONS.md`.
 - **README:** contar la evolución, con ventajas **y desventajas**; **solo lo implementado**.
 - Actualizar ROADMAP y ARCHITECTURE cuando algo cambie de estado.
 

@@ -1,7 +1,7 @@
 # Decisiones técnicas
 
 > Índice de **todas** las decisiones del proyecto. D1–D31 están desarrolladas en el doc de cada etapa (acá solo el resumen y el enlace). D32–D54 (Etapa 6) están acá con sus alternativas completas y resumidas en [06-dynamodb.md](06-dynamodb.md).
-> **Próximo número libre: D79.** D78 registrado (finales de línea, 2026-10-21).
+> **Próximo número libre: D84.** D80–D83 registrados (Etapa 9, Cognito, 2026-10-24).
 > Cada decisión nueva se agrega acá y en el doc de su etapa.
 > Las decisiones grandes tienen además un **ADR** completo (D55):
 >
@@ -13,6 +13,7 @@
 > | [ADR-004](architecture-decisions/004-dynamodb.md) | DynamoDB on-demand | D32–D45, D50, D53, D54 |
 > | [ADR-005](architecture-decisions/005-deployment-model.md) | Modelo de despliegue self-hosted single-account | D48, D2, D64 |
 > | [ADR-006](architecture-decisions/006-frontend-spa.md) | Frontend SPA (React + Vite + TS) en S3 + CloudFront | D64–D66, D75, D76 |
+> | [ADR-007](architecture-decisions/007-autenticacion-cognito.md) | Autenticación con Cognito (OIDC + PKCE) y JWT authorizer | D80–D83 |
 
 ## D1–D31 (documentadas por etapa)
 
@@ -104,6 +105,10 @@ D32–D54, tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSAC
 | D77 | Excepción a D68 (dependencias npm) | Subir `vite` 8.3.2 → **8.3.5** aunque se publicó el mismo día (2026-10-21), sin esperar los 14 días | `npm audit` (bloqueante desde el paso 8.6) marcaba 1 vulnerabilidad HIGH (`launch-editor`, GHSA-698v-4r3x-3vcv). Tras el upgrade: 0 vulnerabilidades. Es una dependencia de desarrollo: no llega al bundle desplegado. Documentada también en [13a §4.6](13a-ci-minimo.md) y `odd/tasks/ci-frontend.md` | — |
 | D78 | Finales de línea | **LF fijado con `.gitattributes`** (`* text=auto eol=lf`, `*.png binary`) y `.claude/` en `.gitignore`. 2026-10-21 | 38 archivos aparecieron "modificados" solo por CRLF de Windows (repo en `/mnt/c` usado desde WSL y Windows) y bloquearon un `git switch`. Sin `.gitattributes` ni `core.autocrlf`, la regla dependía de cada máquina; el atributo viaja con el repo (también para quien despliegue su copia, D48). Con CRLF en disco, `git add` normaliza y no queda nada para commitear, aunque `git status` puede seguir listando el archivo | `core.autocrlf` por máquina (no viaja con el repo); no hacer nada (riesgo de commitear un diff de miles de líneas) |
 | D79 | Deploy del frontend | **Build en la PC del usuario** (`VITE_API_URL` al compilar) y subida desde CloudShell (`dist.zip`). `Cache-Control`: `assets/*` 1 año `immutable`, `index.html` `no-cache`, archivos de `public/` (sin hash) 1 día. Orden assets → `index.html`, **sin `--delete`**, invalidación de `/` y `/index.html`. 2026-10-21 | Las dependencias de npm no corren con credenciales de admin (least privilege, como D59); el orden y no borrar evitan pantallas en blanco durante y después del deploy | Build en CloudShell (dependencias de terceros con `AdministratorAccess`; Node ≥ 20.19 no verificado); deploy desde GitHub Actions (D59: sin credenciales de AWS en la V1) |
+| D80 | User Pool y app client de Cognito | Plan **Essentials**, **solo el admin crea usuarios**, **MFA obligatorio (TOTP)**, deletion protection. App client **público sin secret**, **Authorization Code + PKCE**, scopes **`openid email`** (se sacó `phone`, que la consola marca por defecto), callbacks `/app/callback` y logout `/app` solo de localhost y CloudFront. Access/ID token 60 min. Ver [09 §4.1](09-cognito.md). 2026-10-22 | Con registro abierto, cualquiera obtendría un token válido; con MFA, una contraseña filtrada no alcanza; PKCE reemplaza al secret que una SPA no puede guardar; listas exactas de callbacks y scopes | Registro abierto; MFA opcional o por SMS (costo SNS); implicit flow (tokens en la URL, desaconsejado); plan Plus (sin free tier) |
+| D81 | Login en la SPA | **`oidc-client-ts` 3.5.0** (D68). Tokens en **`sessionStorage`**. Renovación automática con refresh token de **12 h** (720 min; por defecto 30 días) y **revocación** en el logout, que además cierra la sesión del login de Cognito. A la API va el **access token**, nunca el ID token. `returnTo` solo a rutas `/app`. Ver [09 §4.3](09-cognito.md). 2026-10-23 | Librería OIDC estándar y chica, sin atarse a AWS; `sessionStorage` sobrevive al F5 y muere con la pestaña; 12 h acota el daño de un refresh token robado; sin open redirect | AWS Amplify (decenas de dependencias); PKCE a mano (código de seguridad casero); `localStorage` (persiste); memoria (login en cada F5); sin refresh token (contraseña + MFA cada hora) |
+| D82 | Autorización en la API | **JWT authorizer nativo de HTTP API** (`cognito-openaegis`, issuer = el User Pool, audience = el client ID) en las **5 rutas**, con **authorization scope `openid`**. CORS: **`authorization`** en Allow-Headers. Orden: CORS → SPA → authorizer, sin corte de servicio. Ver [09 §4.2 y §4.4](09-cognito.md). 2026-10-24 | Valida antes de la Lambda (sin costo ni logs ante un ataque) y sin código; el scope hace que un ID token rebote (`403`), como recomienda AWS | Lambda authorizer (código y costo de más); validar el JWT en la Lambda (dependencia nueva, la Lambda corre igual); sin scope (aceptaría ID tokens) |
+| D83 | SPA ante `401` y `403` | **`401`** → `reloginAfter401()`: borra la sesión local y manda al login, para volver a la misma página, con un **freno de 1 minuto** contra el bucle. **`403`** → "No tenés permiso para esta acción." Ver [09 §4.5](09-cognito.md). 2026-10-24 | El `401` del authorizer trae CORS, así que la SPA lo lee; sin freno, un authorizer mal configurado más la cookie de Cognito darían un bucle automático e infinito | Mostrar el error "Unauthorized" y dejar la app trabada; reintentar sin freno |
 
 ## Propuestas (no decididas)
 
@@ -115,6 +120,8 @@ D32–D54, tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSAC
 | CLI | Reutilizar los checks desde una CLI local | [PROPUESTA] para la revisión V1 → V2 |
 | Terraform | CDK para la app, Terraform para un *security lab* | Hipótesis del usuario, no decidida |
 | API bajo CloudFront | Servir la API en `/api/*` (mismo origen, sin CORS) | Mejora posible mencionada en D30 |
+| CI/CD con GitLab CI o Jenkins | **V1:** seguir con GitHub Actions y sumar el CD (deploy al mergear, con OIDC hacia AWS) en la Etapa 12. **Bloque B:** replicar el mismo pipeline en GitLab CI (con un espejo del repo) para comparar; Jenkins solo local con Docker, como ejercicio. Nunca en una EC2 de la cuenta (D8). Conversado el 2026-10-24 | [PROPUESTA] |
+| `MaxAge` del CORS | Subirlo de 0 a, por ejemplo, 300 s: con `Authorization`, cada llamada hace preflight | [PROPUESTA] (Etapa 9) |
 
 ## Preguntas abiertas para el usuario
 

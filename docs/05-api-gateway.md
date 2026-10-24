@@ -146,7 +146,7 @@ Un frontend que llama a la API expone su URL en el JavaScript (visible con F12).
 | Throttling | Rate 10 req/s · Burst 20 |
 | CORS — Allow-Origin | `https://<distribucion>.cloudfront.net` |
 | CORS — Allow-Methods | En esta etapa: `POST`. Desde la Etapa 6: `GET`, `POST`, `PATCH`, `DELETE` (verificado con `aws apigatewayv2 get-api --api-id <api-id> --query CorsConfiguration`) |
-| CORS — Allow-Headers | `content-type` |
+| CORS — Allow-Headers | `content-type`. Desde la Etapa 9: `content-type`, `authorization` ([09 §4.2](09-cognito.md)) |
 | Tags | `Project = cloud-security-checklist` |
 
 ### 4.2 Resource-based policy de la Lambda
