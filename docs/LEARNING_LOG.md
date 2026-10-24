@@ -79,3 +79,4 @@
 - *Etapa 9: el logout no llega al `/logout` de Cognito.* ✅ b: la cookie de Cognito te deja pasar sin contraseña. *Callback adentro de `/app`.* ✅ b: bucle. *`returnTo` a un sitio externo.* ✅ el usuario cae en el sitio falso (open redirect).
 - *Etapa 9 (9.4): JWT firmado con otra clave.* ✅ b: `401`. *`DELETE` sin authorizer.* ✅ cualquiera borra con `curl` (matiz: necesita el `id`, pero un UUID no es control de acceso).
 - *Etapa 9 (9.5): access token después del logout.* ✅ predijo `200` y dio `200`. *Sin el freno de 1 minuto.* ✅ bucle de login infinito.
+- *Etapa 9, checkpoint:* compañero nuevo ✅ (b: lo crea el admin); bot sin token: primero el throttling, con la pista ✅ el JWT authorizer; dominio nuevo con error de CORS ✅ (Allow-Origin); robo con `global-sign-out`: primero "12 h", con la pista ✅ 1 h (el access token).
