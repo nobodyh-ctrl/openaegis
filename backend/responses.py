@@ -36,3 +36,9 @@ def parse_json_body(event):
     if not isinstance(body_data, dict):
         return None, error_response(400, "El body debe ser un objeto JSON.")
     return body_data, None
+
+
+def user_sub(event):
+    """ID del usuario de Cognito (claim "sub") que el JWT authorizer validó, o None si no hay authorizer."""
+    claims = event.get("requestContext", {}).get("authorizer", {}).get("jwt", {}).get("claims", {})
+    return claims.get("sub")

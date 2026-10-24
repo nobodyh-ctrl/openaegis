@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
-from responses import build_response, error_response, parse_json_body  # noqa: E402
+from responses import build_response, error_response, parse_json_body, user_sub  # noqa: E402
 
 
 class BuildResponseTests(unittest.TestCase):
@@ -68,6 +68,19 @@ class ParseJsonBodyTests(unittest.TestCase):
         body, err_response = parse_json_body({"body": '{"status": "FAIL"}'})
         self.assertIsNone(err_response)
         self.assertEqual(body, {"status": "FAIL"})
+
+
+
+class UserSubTests(unittest.TestCase):
+
+    def test_devuelve_el_sub_del_authorizer(self):
+        event = {"requestContext": {"authorizer": {"jwt": {"claims": {"sub": "abc-123"}}}}}
+        self.assertEqual(user_sub(event), "abc-123")
+
+    def test_sin_authorizer_devuelve_none(self):
+        # Por ejemplo, una prueba desde la consola de Lambda: el evento no trae claims
+        self.assertIsNone(user_sub({}))
+        self.assertIsNone(user_sub({"requestContext": {"requestId": "x"}}))
 
 
 if __name__ == "__main__":
