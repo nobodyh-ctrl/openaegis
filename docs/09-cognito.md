@@ -1,6 +1,6 @@
 # Etapa 9 — Cognito: login en la SPA y API con JWT authorizer
 
-> **Estado:** 🟡 casi completa (2026-10-22 → 2026-10-24). Login con MFA, token en cada llamada y API cerrada con un JWT authorizer, verificados en producción (§4.5). Falta desplegar y probar el manejo del `401` en la SPA (PR #13, ya mergeado) y el checkpoint de la etapa (§12).
+> **Estado:** ✅ completa (2026-10-22 → 2026-10-24). Login con MFA, token en cada llamada, API cerrada con un JWT authorizer y manejo del `401`/`403` en la SPA, verificados en producción (§4.5). Checkpoint en §12.
 > **Costo de la etapa:** USD 0 extra. Cognito *Essentials* incluye 10.000 usuarios activos por mes gratis, sin vencimiento; el JWT authorizer de HTTP API no tiene cargo aparte (§7).
 
 ## 1. Objetivo
@@ -200,7 +200,16 @@ Los tokens se copiaron de la SPA (F12 → Console → `copy(...)` desde `session
 
 La primera versión de la prueba 6 contó 5 `START` porque en esa ventana también se usó la SPA: hay que aislar la ventana de logs.
 
-**Manejo del `401` en la SPA (PR #13, mergeado el 2026-10-24; deploy pendiente):** como el `401` es legible, `api.ts` llama a `reloginAfter401()`, que borra la sesión local y manda al login. Caso real: cerrar sesión en otra pestaña revoca el refresh token compartido; una hora después, esta pestaña no puede renovar y recibe `401`. **Freno de 1 minuto:** si el `401` sigue después de un login nuevo (por ejemplo, un authorizer con otro client ID), se muestra el error. Sin el freno, la cookie de Cognito haría un bucle login → `401` → login automático e infinito. El `403` muestra "No tenés permiso para esta acción."
+**Manejo del `401` en la SPA (PR #13, desplegado el 2026-10-24):** como el `401` es legible, `api.ts` llama a `reloginAfter401()`, que borra la sesión local y manda al login. Caso real: cerrar sesión en otra pestaña revoca el refresh token compartido; una hora después, esta pestaña no puede renovar y recibe `401`. **Freno de 1 minuto:** si el `401` sigue después de un login nuevo (por ejemplo, un authorizer con otro client ID), se muestra el error. Sin el freno, la cookie de Cognito haría un bucle login → `401` → login automático e infinito. El `403` muestra "No tenés permiso para esta acción."
+
+Pruebas en producción, desde el navegador [CONVERSACIÓN]. El token se alteró en `sessionStorage` desde la Console (F12) y se recargó la página:
+
+| # | Prueba | Resultado |
+|---|---|---|
+| 8 | Access token con la firma rota | `401` → relogin automático, **sin** pedir contraseña ni MFA (la cookie de Cognito seguía viva), y vuelta a la misma página con datos |
+| 9 | Lo mismo otra vez, antes de 1 minuto | **Freno**: no redirige; muestra el error "Unauthorized" |
+| 10 | Pasado el minuto, F5 | Relogin automático: se recupera solo |
+| 11 | ID token en el lugar del access token | `403` → "No se pudieron cargar los controles · No tenés permiso para esta acción.", sin redirigir |
 
 ## 5. Plan de la etapa
 
@@ -210,8 +219,8 @@ La primera versión de la prueba 6 contó 5 `START` porque en esa ventana tambi�
 | 9.2 | CORS: `authorization` en Allow-Headers | Sí (configuración) | ✅ 2026-10-22 (§4.2) |
 | 9.3 | Login en la SPA + token en las llamadas + deploy | Sí (S3) | ✅ 2026-10-23, PR #12 (§4.3) |
 | 9.4 | JWT authorizer en las 5 rutas con scope `openid` | Sí (configuración) | ✅ 2026-10-24 (§4.4) |
-| 9.5 | Verificación de punta a punta + manejo del `401` en la SPA | Sí (S3, para el deploy) | 🟡 Pruebas ✅; PR #13 mergeado, sin desplegar (§4.5) |
-| 9.6 | Documentación, diagramas, checkpoint y nota de Obsidian | No | 🟡 Docs y diagramas ✅ (2026-10-24); checkpoint [PENDIENTE] |
+| 9.5 | Verificación de punta a punta + manejo del `401` en la SPA | Sí (S3, para el deploy) | ✅ 2026-10-24: 11 pruebas (7 con `curl`, 4 en la SPA); PR #13 desplegado (§4.5) |
+| 9.6 | Documentación, diagramas, checkpoint y nota de Obsidian | No | ✅ 2026-10-24: PR #14 (docs), PR #15 (diagramas), checkpoint (§12) |
 
 ## 6. Verificación (resumen de la etapa)
 
@@ -257,8 +266,6 @@ En orden inverso, para no dejar la SPA rota en el medio:
 
 ## 10. Pendientes y mejoras posibles
 
-- Desplegar y probar en producción el PR #13, ya mergeado (`401` → login) [PENDIENTE].
-- Checkpoint de la etapa [PENDIENTE].
 - `check_identifiers.py`: detectar IDs de Cognito (User Pool ID `us-east-1_...`, dominio `*.auth.us-east-1.amazoncognito.com`) [PENDIENTE].
 - `MaxAge` del CORS en 0: cada llamada hace preflight. Subirlo (por ejemplo, a 300 s) [PROPUESTA].
 - Usar el `sub` del token en la Lambda (`requestContext.authorizer.jwt.claims`) para auditar quién crea o borra cada control [PROPUESTA].
@@ -278,6 +285,24 @@ En orden inverso, para no dejar la SPA rota en el medio:
 
 ## 12. Checkpoint
 
-[PENDIENTE] Se completa al cerrar la etapa, después del deploy del PR #13.
+Checkpoint (2026-10-24):
+
+| Eje | Qué quedó |
+|---|---|
+| **CONCEPTO** | Autenticación (¿quién sos?) vs. autorización (¿qué podés hacer?). Authorization Code + PKCE. ID token (DNI), access token (pulsera), refresh token (vale). `401` vs. `403` |
+| **ARQUITECTURA** | SPA → Cognito (login con MFA) → tokens → SPA → API Gateway (JWT authorizer, con las claves públicas de Cognito) → Lambda solo con un token válido |
+| **SEGURIDAD** | Ver §8 |
+| **COSTOS** | USD 0 extra (§7) |
+| **PRÁCTICA** | Cognito y authorizer en la consola, CORS, `read -rs` para tokens, deploy de la SPA, pruebas desde el navegador alterando `sessionStorage` |
+| **VERIFICACIÓN** | 11 pruebas: 7 con `curl` y 4 en la SPA (§4.5) |
+
+Preguntas y respuestas del usuario:
+
+| Pregunta | Respuesta |
+|---|---|
+| Con el registro cerrado, ¿cómo entra un compañero? | ✅ b: lo crea el admin en el User Pool y él configura su propio MFA. Compartir el usuario rompería la trazabilidad |
+| Un bot manda 1 millón de pedidos sin token: ¿qué servicios trabajan? | Primero: "API Gateway, por el rate limit y el burst". Con la pista (un bot por debajo del límite): ✅ el **JWT authorizer** rechaza antes de la Lambda; el throttling solo corta el exceso con `429` |
+| Dominio nuevo: el login anda pero hay error de CORS | ✅ Falta el Allow-Origin del CORS de API Gateway (además de las callbacks de Cognito) |
+| Robo de la notebook y `admin-user-global-sign-out`: ¿cuánto puede seguir usando la API el ladrón? | Primero: "12 h" (la vida del refresh token, que ya estaba revocado). Con la pista: ✅ **hasta 1 h**, lo que dure el access token, que no se puede revocar |
 
 Respuestas del usuario durante la etapa: [LEARNING_LOG.md §3](LEARNING_LOG.md#3-predicciones-del-patch).

@@ -90,7 +90,7 @@ Localmente existe `lambda.zip` (artefacto de deploy, ignorado por `.gitignore`).
 | CI mínimo (Etapa 13a): 42 tests + chequeo de identificadores | ✅ [CONFIRMADO-REPO] + run verde en GitHub (2026-10-15) |
 | Job de frontend en el CI (paso 8.6): `npm ci`, typecheck, build, `npm audit` | ✅ [CONFIRMADO-REPO] + PR #5 mergeado con `checks` en verde (2026-10-21) |
 | Frontend SPA (React + Vite + TS + Cloudscape, D75/D76) | ✅ código [CONFIRMADO-REPO] — implementado y verificado en local; **desplegado** en CloudFront el 2026-10-21 (paso 8.8, D79) y CRUD verificado en producción (8.9) [CONVERSACIÓN]. **Etapa 8 completa** |
-| Cognito (Etapa 9): User Pool con MFA, login en la SPA, JWT authorizer en las 5 rutas | 🟡 casi completa [CONVERSACIÓN, 2026-10-24]: verificado en producción; falta el deploy del PR #13 (`401` → login) y el checkpoint. [docs/09-cognito.md](docs/09-cognito.md) |
+| Cognito (Etapa 9): User Pool con MFA, login en la SPA, JWT authorizer en las 5 rutas | ✅ [CONVERSACIÓN, 2026-10-24]: verificado en producción (11 pruebas, incluido el `401` → login y el `403` en la SPA); checkpoint hecho. [docs/09-cognito.md](docs/09-cognito.md) |
 | CloudWatch avanzado, checks + findings, CDK, `cdk synth` en CI, tests de `controls.py` | [PENDIENTE] (Etapas 10–16) |
 
 Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
