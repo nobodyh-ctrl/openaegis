@@ -1,15 +1,26 @@
 """Lógica de cada ruta de /controls: valida, aplica las reglas de negocio y arma la respuesta."""
 
+import logging
 import uuid
 from datetime import datetime, timezone
 
 import repository
-from responses import build_response, error_response, parse_json_body
+from responses import build_response, error_response, parse_json_body, user_sub
 from validation import validate_control_id, validate_fields
+
+logger = logging.getLogger(__name__)
 
 
 def _now_utc():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _log_change(action, event, item):
+    """Auditoría: qué control cambió y quién lo hizo. Solo IDs, nunca el body completo."""
+    logger.info(
+        f"control {action}",
+        extra={"control_id": item["id"], "code": item.get("code"), "user_sub": user_sub(event)},
+    )
 
 
 def list_controls(event):
@@ -50,6 +61,7 @@ def create_control(event):
     }
 
     repository.create_control(item)
+    _log_change("creado", event, item)
 
     return build_response(201, {"item": item})
 
@@ -78,6 +90,7 @@ def update_control(event):
     if item is None:
         return error_response(404, "Control no encontrado.")
 
+    _log_change("actualizado", event, item)
     return build_response(200, {"item": item})
 
 
@@ -90,5 +103,5 @@ def delete_control(event):
     if item is None:
         return error_response(404, "Control no encontrado.")
 
-    print(f"[DELETE] code={item.get('code')} id={item['id']}")
+    _log_change("eliminado", event, item)
     return build_response(200, {"item": item})

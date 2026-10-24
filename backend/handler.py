@@ -1,5 +1,12 @@
+import logging
+
 import controls
-from responses import build_response
+from responses import build_response, user_sub
+
+# Con el log format JSON de Lambda, cada logger.info(...) sale como un JSON con
+# timestamp, level, message y requestId; extra={...} agrega campos propios.
+# El nivel (INFO) se configura en la Lambda, no acá.
+logger = logging.getLogger()
 
 ROUTES = {
     "GET /controls": controls.list_controls,
@@ -12,14 +19,18 @@ ROUTES = {
 
 def lambda_handler(event, context):
     route_key = event.get("routeKey", "UNKNOWN")
-
-    request_context = event.get("requestContext", {})
-    apigw_request_id = request_context.get("requestId", "UNKNOWN")
-    lambda_request_id = context.aws_request_id
-    print(f"[{route_key}] | APIGW_ID: {apigw_request_id} | LAMBDA_ID: {lambda_request_id}")
+    log_fields = {
+        "route": route_key,
+        "apigw_request_id": event.get("requestContext", {}).get("requestId"),
+        "user_sub": user_sub(event),
+    }
 
     route_fn = ROUTES.get(route_key)
     if route_fn is None:
+        logger.warning("ruta no encontrada", extra=log_fields)
         return build_response(404, {"error": f"Ruta no encontrada: {route_key}"})
 
+    logger.info("request", extra=log_fields)
+    # Sin try/except: si algo falla, la excepción llega al runtime, que la loguea con el
+    # stackTrace y suma 1 a la métrica Errors (la que vigila la alarma del paso 10.5).
     return route_fn(event)
