@@ -4,7 +4,7 @@
  * Espejo del contrato del backend (backend/validation.py y backend/controls.py).
  */
 
-import { getAccessToken } from "./auth";
+import { getAccessToken, reloginAfter401 } from "./auth";
 
 export const SEVERITIES =["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
 export const STATUSES = ["PASS", "REVIEW", "FAIL"] as const;
@@ -57,8 +57,10 @@ export class ApiError extends Error {
 // En producción: la URL real, inyectada al compilar con VITE_API_URL.
 const BASE_URL = (import.meta.env.VITE_API_URL ?? "/api").replace(/\/$/, "");
 
-/** El backend responde {"error": "..."}; API Gateway, {"message": "..."} (404 de ruta, 429, 500). */
+/** El backend responde {"error": "..."}; API Gateway, {"message": "..."} (401, 403, 404 de ruta, 429, 500). */
 function errorMessage(data: unknown, status: number): string {
+  // 403 del authorizer: el token es válido pero no tiene el scope que exige la ruta.
+  if (status === 403) return "No tenés permiso para esta acción.";
   if (data && typeof data === "object") {
     const body = data as Record<string, unknown>;
     if (typeof body.error === "string") return body.error;
@@ -88,6 +90,8 @@ async function request<T>(path: string, init: { method?: string; body?: unknown 
   }
 
   const data: unknown = await response.json().catch(() => null);
+  // 401 = el authorizer no aceptó el token: login de nuevo. La página se va, así que no resolvemos.
+  if (response.status === 401 && (await reloginAfter401())) return new Promise<never>(() => {});
   if (!response.ok) {
     throw new ApiError(response.status, errorMessage(data, response.status));
   }
