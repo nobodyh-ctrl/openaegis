@@ -71,6 +71,26 @@ export async function requireSession({ request }: { request: Request }): Promise
   return new Promise<never>(() => {});
 }
 
+const LAST_RELOGIN_KEY = "openaegis.ultimo-relogin-401";
+
+/**
+ * La API respondió 401: el token venció sin poder renovarse, fue rechazado o no se mandó.
+ * Caso típico: cerraste sesión en otra pestaña (eso revoca el refresh token) y en esta el
+ * access token venció. Se descarta la sesión local y se vuelve a pedir login.
+ *
+ * Devuelve false si ya se intentó hace menos de 1 minuto. Si el 401 sigue después de un login
+ * nuevo, el problema no es el token sino la configuración (por ejemplo, un authorizer con otro
+ * client ID): en vez de un bucle login → 401 → login, se deja ver el error.
+ */
+export async function reloginAfter401(): Promise<boolean> {
+  const last = Number(sessionStorage.getItem(LAST_RELOGIN_KEY)) || 0;
+  if (Date.now() - last < 60_000) return false;
+  sessionStorage.setItem(LAST_RELOGIN_KEY, String(Date.now()));
+  await userManager.removeUser();
+  await login(window.location.pathname + window.location.search);
+  return true;
+}
+
 /**
  * Cierra la sesión en tres pasos:
  * 1. Revoca el refresh token en Cognito: si alguien lo robó, ya no puede renovar.
