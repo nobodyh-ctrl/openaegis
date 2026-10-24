@@ -41,8 +41,8 @@ Desde la Etapa 9 (D80–D83, [ADR-007](architecture-decisions/007-autenticacion-
 
 **Diagramas del repo:**
 
-- [architecture/architecture.drawio.png](../architecture/architecture.drawio.png) — vista general, actualizada al cierre de la Etapa 8 (2026-10-21). Todavía no muestra Cognito como implementado ni el JWT authorizer [PENDIENTE]. PNG editable con la extensión draw.io de VS Code (XML embebido; fondo blanco para el modo oscuro de GitHub).
-- [architecture/permissions-flow.drawio.png](../architecture/permissions-flow.drawio.png) — "quién le pide permiso a quién", flechas ① a ⑤.
+- [architecture/architecture.drawio.png](../architecture/architecture.drawio.png) — vista general, actualizada el 2026-10-24 (Etapa 9): Cognito implementado, login de la SPA (PKCE + MFA), JWT authorizer en API Gateway y JWKS. PNG editable con la extensión draw.io de VS Code (XML embebido; fondo blanco para el modo oscuro de GitHub).
+- [architecture/permissions-flow.drawio.png](../architecture/permissions-flow.drawio.png) — "quién le pide permiso a quién", flechas ① a ⑤. Desde la Etapa 9, ① la autoriza el JWT authorizer (en azul: autorización por token, no por IAM).
 
 ## 2. Recursos de AWS [CONVERSACIÓN]
 

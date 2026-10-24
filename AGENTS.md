@@ -44,8 +44,8 @@ openaegis/
 ├── .gitignore                ← secretos, __pycache__, cdk.out/, *.zip, .claude/
 ├── .gitattributes            ← finales de línea LF en cualquier SO (D78)
 ├── architecture/
-│   ├── architecture.drawio.png       ← diagrama editable (extensión draw.io de VS Code); actualizado al cierre de la Etapa 8
-│   └── permissions-flow.drawio.png   ← "quién le pide permiso a quién" (flechas ① a ⑤)
+│   ├── architecture.drawio.png       ← diagrama editable (extensión draw.io de VS Code); actualizado en la Etapa 9 (Cognito y JWT authorizer)
+│   └── permissions-flow.drawio.png   ← "quién le pide permiso a quién" (flechas ① a ⑤; ① autorizada por el JWT authorizer)
 ├── backend/                  ← código de la Lambda (Python, sin dependencias externas)
 │   ├── handler.py            ← punto de entrada: ROUTES + lambda_handler
 │   ├── controls.py           ← lógica de cada ruta de /controls

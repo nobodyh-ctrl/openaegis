@@ -211,7 +211,7 @@ La primera versión de la prueba 6 contó 5 `START` porque en esa ventana tambi�
 | 9.3 | Login en la SPA + token en las llamadas + deploy | Sí (S3) | ✅ 2026-10-23, PR #12 (§4.3) |
 | 9.4 | JWT authorizer en las 5 rutas con scope `openid` | Sí (configuración) | ✅ 2026-10-24 (§4.4) |
 | 9.5 | Verificación de punta a punta + manejo del `401` en la SPA | Sí (S3, para el deploy) | 🟡 Pruebas ✅; PR #13 mergeado, sin desplegar (§4.5) |
-| 9.6 | Documentación, checkpoint y nota de Obsidian | No | 🟡 Docs ✅; checkpoint [PENDIENTE] |
+| 9.6 | Documentación, diagramas, checkpoint y nota de Obsidian | No | 🟡 Docs y diagramas ✅ (2026-10-24); checkpoint [PENDIENTE] |
 
 ## 6. Verificación (resumen de la etapa)
 
@@ -260,7 +260,6 @@ En orden inverso, para no dejar la SPA rota en el medio:
 - Desplegar y probar en producción el PR #13, ya mergeado (`401` → login) [PENDIENTE].
 - Checkpoint de la etapa [PENDIENTE].
 - `check_identifiers.py`: detectar IDs de Cognito (User Pool ID `us-east-1_...`, dominio `*.auth.us-east-1.amazoncognito.com`) [PENDIENTE].
-- Actualizar `architecture.drawio.png` con Cognito y el authorizer [PENDIENTE].
 - `MaxAge` del CORS en 0: cada llamada hace preflight. Subirlo (por ejemplo, a 300 s) [PROPUESTA].
 - Usar el `sub` del token en la Lambda (`requestContext.authorizer.jwt.claims`) para auditar quién crea o borra cada control [PROPUESTA].
 - Scopes propios con un *resource server* (`controls.read`, `controls.write`) para roles de solo lectura [PROPUESTA, V2].
