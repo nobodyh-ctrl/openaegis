@@ -3,7 +3,7 @@
 > Aplicación serverless en AWS para gestionar controles de seguridad cloud y, más adelante, evaluarlos con checks automáticos de solo lectura.
 > Proyecto **educativo y de portfolio**, construido etapa por etapa para entender cada servicio de AWS que usa. *(Antes: "Cloud Security Checklist".)*
 
-**Estado:** V1 en desarrollo. Etapas 0–8 completas (CRUD de controles, permisos auditados y frontend SPA con Cloudscape desplegado en S3 + CloudFront) + CI mínimo. Sigue la Etapa 9 (Cognito). Ver [Roadmap](#roadmap).
+**Estado:** V1 en desarrollo. Etapas 0–8 completas (CRUD de controles, permisos auditados y frontend SPA con Cloudscape desplegado en S3 + CloudFront) + CI mínimo. Etapa 9 (Cognito) casi completa: login con MFA y API protegida con JWT. Ver [Roadmap](#roadmap).
 
 ---
 
@@ -22,22 +22,26 @@ En las próximas etapas va a ejecutar **checks automáticos de solo lectura** co
 | Frontend estático servido por CloudFront desde un bucket S3 privado | ✅ Sirve el build de la SPA |
 | SPA (React + Vite + TypeScript + Cloudscape, D75/D76) | ✅ Desplegada (build local + `s3 sync` desde CloudShell, D79) |
 | API HTTP con throttling y CORS restringido | ✅ |
+| Login en la SPA con Cognito: registro cerrado, MFA obligatorio, Authorization Code + PKCE, renovación y logout con revocación | ✅ |
+| API protegida con un JWT authorizer: sin token válido → `401`, sin el scope `openid` → `403`, sin invocar la Lambda | ✅ |
 | `GET /controls` — listar controles | ✅ |
 | `GET /controls/{id}` — obtener un control | ✅ |
 | `POST /controls` — crear un control (validación de tipos, largos, enums, `code` único, allowlist de campos) | ✅ |
 | `PATCH /controls/{id}` — editar campos o cambiar el estado (404 sin crear items, 409 por `code` de otro control, allowlist) | ✅ |
 | `DELETE /controls/{id}` — eliminar un control (404 si no existe, devuelve el item borrado) | ✅ |
 | CI con GitHub Actions: tests unitarios, chequeo de identificadores reales y verificación del frontend (`npm ci`, typecheck, build, `npm audit`), sin credenciales de AWS | ✅ |
-| Autenticación, checks, findings, score, IaC, tests de `controls.py`/API | 🔜 Ver roadmap |
+| Checks, findings, score, IaC, tests de `controls.py`/API | 🔜 Ver roadmap |
 
 ## Arquitectura
 
 ```text
 Navegador ──HTTPS──► CloudFront ──OAC──► S3 (privado)                   frontend estático
-
-Cliente ──HTTPS──► API Gateway (HTTP API) ──► Lambda (Python) ──► DynamoDB
-                    throttling + CORS            │
-                                                 └──► CloudWatch Logs
+    │
+    ├──login (PKCE + MFA)──► Cognito User Pool ──► tokens (ID, access, refresh)
+    │
+    └──Bearer <access token>──► API Gateway (HTTP API) ──► Lambda (Python) ──► DynamoDB
+                                throttling + CORS            │
+                                JWT authorizer (401/403)     └──► CloudWatch Logs
 ```
 
 Todo corre en una sola cuenta y en una sola región (`us-east-1`). Detalle completo (recursos, permisos, flujo de una request, modelo de datos): **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
@@ -84,7 +88,7 @@ HTTPS incluido, bucket **privado** (solo CloudFront puede leerlo, mediante OAC) 
 
 ### Por qué API Gateway HTTP API
 
-Punto de entrada HTTP con **throttling** (techo de costo mientras la API no tiene autenticación), CORS gestionado y autorizador JWT nativo para Cognito, más barato que una REST API. Desventaja: menos funcionalidades que la REST API (por ejemplo, sin WAF directo ni API keys).
+Punto de entrada HTTP con **throttling** (techo de costo), CORS gestionado y **autorizador JWT nativo** para Cognito (en uso desde la Etapa 9), más barato que una REST API. Desventaja: menos funcionalidades que la REST API (por ejemplo, sin WAF directo ni API keys).
 
 ### Por qué DynamoDB
 
@@ -101,10 +105,12 @@ Serverless, pago por uso y acceso **por IAM**: no hay usuario y contraseña de b
 - **Least privilege:** el rol de la Lambda solo puede hacer `Scan`, `GetItem`, `PutItem`, `UpdateItem` y `DeleteItem` sobre **una** tabla. API Gateway solo puede invocar la Lambda desde esta API y desde paths concretos. CloudFront es el único que puede leer el bucket.
 - **Sin credenciales de larga duración:** sin access keys; la CLI se usa desde AWS CloudShell. Root con MFA y sin uso diario.
 - **Validación estricta** de la entrada: tipos, largos, valores permitidos y allowlist de campos (protección contra *mass assignment*). Escrituras condicionales para no pisar ni crear items por accidente.
-- **CORS** restringido al dominio del frontend (aclaración: CORS **no** es autenticación; la autenticación llega con Cognito).
+- **Autenticación con Cognito:** registro cerrado (solo el admin crea usuarios), **MFA obligatorio** (TOTP), Authorization Code + PKCE (sin secretos en la SPA), tokens en `sessionStorage`, refresh token de 12 h revocado en el logout.
+- **Autorización en API Gateway:** un JWT authorizer valida firma, emisor, cliente, vencimiento y el scope `openid` **antes** de la Lambda. Desventaja aceptada: el access token no se puede revocar (dura 1 h).
+- **CORS** restringido al dominio del frontend (CORS **no** es autenticación: lo aplica el navegador).
 - **Throttling** en la API para limitar el abuso y el costo (*denial of wallet*).
 - **Logs** con ruta e IDs de request, **sin** el event completo (que incluye headers e IP).
-- Pendiente: autenticación (Cognito) y alarmas.
+- Pendiente: alarmas (Etapa 10).
 
 ## Costos
 
@@ -119,18 +125,21 @@ Compress-Archive -Path backend\*.py -DestinationPath lambda.zip -Force   # luego
 ```
 
 ```bash
-curl -i https://<api-id>.execute-api.us-east-1.amazonaws.com/controls
+API=https://<api-id>.execute-api.us-east-1.amazonaws.com
+curl -i $API/controls                                        # 401: la API exige un token
+read -rs ACCESS                                              # pegar el access token (copiado de la SPA logueada)
+curl -i $API/controls -H "Authorization: Bearer $ACCESS"     # 200
 ```
 
 Procedimiento completo: [AGENTS.md §7](AGENTS.md#7-cómo-desplegar-y-probar-solo-lo-verificado).
 
 ## Destrucción
 
-Cada doc de etapa tiene su sección **"Cómo revertir esta etapa"**. Orden sugerido para eliminar todo, de lo más dependiente a lo menos: rutas y API → statements de la resource-based policy de la Lambda → Lambda y su log group → rol de ejecución → tabla DynamoDB → distribución de CloudFront (deshabilitar y luego borrar) → bucket S3 (vaciar y luego borrar) → verificar por el tag `Project`. Con CDK (Etapa 12) esto pasa a ser `cdk destroy` + verificación.
+Cada doc de etapa tiene su sección **"Cómo revertir esta etapa"**. Orden sugerido para eliminar todo, de lo más dependiente a lo menos: JWT authorizer → rutas y API → statements de la resource-based policy de la Lambda → Lambda y su log group → rol de ejecución → tabla DynamoDB → distribución de CloudFront (deshabilitar y luego borrar) → bucket S3 (vaciar y luego borrar) → User Pool de Cognito (desactivar la deletion protection y borrar) → verificar por el tag `Project`. Con CDK (Etapa 12) esto pasa a ser `cdk destroy` + verificación.
 
 ## Roadmap
 
-**V1 (en curso):** cuenta segura → S3 → CloudFront → Lambda → API Gateway → DynamoDB → IAM → frontend → **Cognito (siguiente)** → CloudWatch → checks read-only + findings + score → CDK → CI → tests → documentación → demo.
+**V1 (en curso):** cuenta segura → S3 → CloudFront → Lambda → API Gateway → DynamoDB → IAM → frontend → **Cognito (casi completa)** → CloudWatch → checks read-only + findings + score → CDK → CI → tests → documentación → demo.
 
 **Después de la V1:** una revisión de arquitectura V1 → V2 y una evolución progresiva hacia Cloud/DevSecOps (containers, Terraform, CI/CD con OIDC, observabilidad, remediación controlada). Cada tecnología se agrega solo si resuelve un problema concreto.
 
@@ -140,10 +149,10 @@ Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 | Doc | Contenido |
 |---|---|
-| [docs/00](docs/00-account-setup.md) … [docs/08](docs/08-frontend.md) · [docs/13a](docs/13a-ci-minimo.md) | Una etapa por documento: conceptos, decisiones, configuración, verificación, costos, cómo revertir |
+| [docs/00](docs/00-account-setup.md) … [docs/09](docs/09-cognito.md) · [docs/13a](docs/13a-ci-minimo.md) | Una etapa por documento: conceptos, decisiones, configuración, verificación, costos, cómo revertir |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Arquitectura implementada |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Todas las decisiones técnicas (índice) |
-| [docs/architecture-decisions/](docs/architecture-decisions/) | ADRs de las decisiones grandes: serverless, S3 + CloudFront, HTTP API, DynamoDB, modelo de despliegue, frontend SPA |
+| [docs/architecture-decisions/](docs/architecture-decisions/) | ADRs de las decisiones grandes: serverless, S3 + CloudFront, HTTP API, DynamoDB, modelo de despliegue, frontend SPA, autenticación con Cognito |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Etapas y estado |
 | [docs/LEARNING_LOG.md](docs/LEARNING_LOG.md) | Conceptos aprendidos y errores encontrados |
 | [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md) | Origen y objetivos del proyecto |
