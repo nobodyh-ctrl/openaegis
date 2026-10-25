@@ -1,7 +1,7 @@
 # Decisiones técnicas
 
 > Índice de **todas** las decisiones del proyecto. D1–D31 están desarrolladas en el doc de cada etapa (acá solo el resumen y el enlace). D32–D54 (Etapa 6) están acá con sus alternativas completas y resumidas en [06-dynamodb.md](06-dynamodb.md).
-> **Próximo número libre: D84.** D80–D83 registrados (Etapa 9, Cognito, 2026-10-24).
+> **Próximo número libre: D89.** D84–D88 registrados (Etapa 10, CloudWatch, 2026-10-25).
 > Cada decisión nueva se agrega acá y en el doc de su etapa.
 > Las decisiones grandes tienen además un **ADR** completo (D55):
 >
@@ -14,6 +14,7 @@
 > | [ADR-005](architecture-decisions/005-deployment-model.md) | Modelo de despliegue self-hosted single-account | D48, D2, D64 |
 > | [ADR-006](architecture-decisions/006-frontend-spa.md) | Frontend SPA (React + Vite + TS) en S3 + CloudFront | D64–D66, D75, D76 |
 > | [ADR-007](architecture-decisions/007-autenticacion-cognito.md) | Autenticación con Cognito (OIDC + PKCE) y JWT authorizer | D80–D83 |
+> | [ADR-008](architecture-decisions/008-observabilidad-cloudwatch.md) | Observabilidad con CloudWatch (logs JSON, access logs, alarmas por email) | D84–D88 |
 
 ## D1–D31 (documentadas por etapa)
 
@@ -109,6 +110,11 @@ D32–D54, tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSAC
 | D81 | Login en la SPA | **`oidc-client-ts` 3.5.0** (D68). Tokens en **`sessionStorage`**. Renovación automática con refresh token de **12 h** (720 min; por defecto 30 días) y **revocación** en el logout, que además cierra la sesión del login de Cognito. A la API va el **access token**, nunca el ID token. `returnTo` solo a rutas `/app`. Ver [09 §4.3](09-cognito.md). 2026-10-23 | Librería OIDC estándar y chica, sin atarse a AWS; `sessionStorage` sobrevive al F5 y muere con la pestaña; 12 h acota el daño de un refresh token robado; sin open redirect | AWS Amplify (decenas de dependencias); PKCE a mano (código de seguridad casero); `localStorage` (persiste); memoria (login en cada F5); sin refresh token (contraseña + MFA cada hora) |
 | D82 | Autorización en la API | **JWT authorizer nativo de HTTP API** (`cognito-openaegis`, issuer = el User Pool, audience = el client ID) en las **5 rutas**, con **authorization scope `openid`**. CORS: **`authorization`** en Allow-Headers. Orden: CORS → SPA → authorizer, sin corte de servicio. Ver [09 §4.2 y §4.4](09-cognito.md). 2026-10-24 | Valida antes de la Lambda (sin costo ni logs ante un ataque) y sin código; el scope hace que un ID token rebote (`403`), como recomienda AWS | Lambda authorizer (código y costo de más); validar el JWT en la Lambda (dependencia nueva, la Lambda corre igual); sin scope (aceptaría ID tokens) |
 | D83 | SPA ante `401` y `403` | **`401`** → `reloginAfter401()`: borra la sesión local y manda al login, para volver a la misma página, con un **freno de 1 minuto** contra el bucle. **`403`** → "No tenés permiso para esta acción." Ver [09 §4.5](09-cognito.md). 2026-10-24 | El `401` del authorizer trae CORS, así que la SPA lo lee; sin freno, un authorizer mal configurado más la cookie de Cognito darían un bucle automático e infinito | Mostrar el error "Unauthorized" y dejar la app trabada; reintentar sin freno |
+| D84 | Logs estructurados | Log format **JSON nativo** de Lambda (nivel INFO, sistema INFO) + módulo `logging`. Línea `request` por invocación (`route`, `apigw_request_id`, `user_sub`) y una de auditoría por cambio (`control creado/actualizado/eliminado` con `control_id`, `code`, `user_sub`). Se loguea el **`sub`**, no el email. Sin `try/except` central. Ver [10 §4.2](10-cloudwatch.md). 2026-10-24 | Sin dependencias; Lambda agrega `requestId` y `timestamp`; el `sub` es estable y el access token no trae el email; los errores inesperados llegan a la métrica `Errors` | AWS Lambda Powertools (dependencia nueva); `print(json.dumps(...))` a mano; loguear el body; `try/except Exception` (apaga `Errors`) |
+| D85 | Access logs de API Gateway | JSON con 15 campos (IP, `userAgent`, status, `authorizerError`, latencias, `sub`...) en `/aws/vendedlogs/apigateway/cloud-sec-checklist-http-api`, **retención 1 semana**, clase Standard. Limitación aceptada: HTTP API no loguea los pedidos a rutas inexistentes. Ver [10 §4.3](10-cloudwatch.md). 2026-10-24 | Única forma de ver los `401`/`403`/`429` que la Lambda no ve; la IP es un dato personal | Sin access logs; ruta `$default` con authorizer para loguear los escaneos (una pieza más que puede quedar mal configurada) |
+| D86 | Alarmas | `openaegis-lambda-errors` (`Errors` ≥ 1), `openaegis-api-5xx` (`5xx` ≥ 1), `openaegis-api-4xx-pico` (`4xx` ≥ 50); Sum en 5 min, 1 de 1, *missing data* = not breaching; en `ALARM` → topic SNS `openaegis-alarmas` (Standard, sin cifrado) → email. Ver [10 §4.5](10-cloudwatch.md). 2026-10-25 | Bug en el código, falla entre API Gateway y Lambda, y ataque o escaneo; sin tráfico no suenan | Sin notificación; Slack/Chatbot; SNS cifrado con `alias/aws/sns` (CloudWatch no puede publicar) o con KMS propio (USD 1/mes) |
+| D87 | Dashboard | `OpenAegis`, creado con `put-dashboard` (JSON): alarmas, métricas de API y Lambda, rechazos del authorizer y auditoría sin `user_sub`. Ver [10 §4.6](10-cloudwatch.md). 2026-10-25 | Repetible y rápido; primer contacto con infraestructura como código | Armarlo a mano en la consola |
+| D88 | Verificación de alarmas | Una alarma se da por buena solo después de una **falla real** (simulacro); su verificación incluye namespace, métrica y **dimensiones**. Ver [10 §4.7](10-cloudwatch.md). 2026-10-25 | `set-alarm-state` no mira la métrica: no detectó una alarma con `FunctionName = Errors` | Confiar en la prueba manual |
 
 ## Propuestas (no decididas)
 
@@ -121,7 +127,9 @@ D32–D54, tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSAC
 | Terraform | CDK para la app, Terraform para un *security lab* | Hipótesis del usuario, no decidida |
 | API bajo CloudFront | Servir la API en `/api/*` (mismo origen, sin CORS) | Mejora posible mencionada en D30 |
 | CI/CD con GitLab CI o Jenkins | **V1:** seguir con GitHub Actions y sumar el CD (deploy al mergear, con OIDC hacia AWS) en la Etapa 12. **Bloque B:** replicar el mismo pipeline en GitLab CI (con un espejo del repo) para comparar; Jenkins solo local con Docker, como ejercicio. Nunca en una EC2 de la cuenta (D8). Conversado el 2026-10-24 | [PROPUESTA] |
-| `MaxAge` del CORS | Subirlo de 0 a, por ejemplo, 300 s: con `Authorization`, cada llamada hace preflight | [PROPUESTA] (Etapa 9) |
+| `MaxAge` del CORS | Subirlo de 0 a, por ejemplo, 300 s: con `Authorization`, cada llamada hace preflight (visible en el access log desde la Etapa 10) | [PROPUESTA] (Etapa 9) |
+| ODD como metodología | Registrar ODD (Specs / Tasks / Log en `odd/tasks/`) como forma de trabajo del proyecto. Se había reservado como D84; tomará el próximo número libre cuando se decida | [PROPUESTA] |
+| Escaneos de rutas inexistentes | Ruta `$default` con el JWT authorizer, para que queden en el access log (D85, opción b) | [PROPUESTA] (Etapa 10) |
 
 ## Preguntas abiertas para el usuario
 

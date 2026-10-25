@@ -1,6 +1,6 @@
 # Arquitectura implementada
 
-> Estado al 2026-10-24. Describe **solo lo que existe**. Lo planificado está en [ROADMAP.md](ROADMAP.md).
+> Estado al 2026-10-25. Describe **solo lo que existe**. Lo planificado está en [ROADMAP.md](ROADMAP.md).
 > Marcas: **[CONFIRMADO-REPO]** = leído en el código · **[CONVERSACIÓN]** = configurado a mano en la consola según el historial, sin verificación independiente · **[INCIERTO]** = verificar.
 
 ## 1. Vista general
@@ -39,10 +39,21 @@ Todo en **`us-east-1`**, en una sola cuenta. Desde el 2026-10-21 (paso 8.8, D79)
 
 Desde la Etapa 9 (D80–D83, [ADR-007](architecture-decisions/007-autenticacion-cognito.md)), `/app` exige login en **Cognito** (contraseña + MFA), la SPA manda el **access token** en cada llamada y el **JWT authorizer** de API Gateway rechaza los pedidos sin un token válido (`401`) o sin el scope `openid` (`403`) **antes** de invocar la Lambda. Detalle: [09-cognito.md](09-cognito.md).
 
+Desde la Etapa 10 (D84–D88, [ADR-008](architecture-decisions/008-observabilidad-cloudwatch.md)), la Lambda escribe **logs JSON** con el `sub` de quien hace cada cambio, API Gateway escribe **access logs** (incluidos los `401`/`403` del authorizer), y **3 alarmas** avisan por email vía SNS. Detalle: [10-cloudwatch.md](10-cloudwatch.md).
+
+```text
+API Gateway ──access log──► /aws/vendedlogs/apigateway/... (1 semana) ─┐
+     │ métricas Count, 4xx, 5xx, Latency                               ├──► Logs Insights · dashboard OpenAegis
+Lambda ──logs JSON──► /aws/lambda/cloud-sec-checklist-api (1 semana) ──┘
+     │ métricas Errors, Duration
+     ▼
+Alarmas: lambda-errors (Errors ≥ 1) · api-5xx (≥ 1) · api-4xx-pico (≥ 50) ──► SNS openaegis-alarmas ──► email
+```
+
 **Diagramas del repo:**
 
-- [architecture/architecture.drawio.png](../architecture/architecture.drawio.png) — vista general, actualizada el 2026-10-24 (Etapa 9): Cognito implementado, login de la SPA (PKCE + MFA), JWT authorizer en API Gateway y JWKS. PNG editable con la extensión draw.io de VS Code (XML embebido; fondo blanco para el modo oscuro de GitHub).
-- [architecture/permissions-flow.drawio.png](../architecture/permissions-flow.drawio.png) — "quién le pide permiso a quién", flechas ① a ⑤. Desde la Etapa 9, ① la autoriza el JWT authorizer (en azul: autorización por token, no por IAM).
+- [architecture/architecture.drawio.png](../architecture/architecture.drawio.png) — vista general, actualizada el 2026-10-25 (Etapa 10): además de Cognito, el JWT authorizer y JWKS (Etapa 9), CloudWatch con logs JSON, access logs de API Gateway, alarmas → SNS → email. PNG editable con la extensión draw.io de VS Code (XML embebido; fondo blanco para el modo oscuro de GitHub).
+- [architecture/permissions-flow.drawio.png](../architecture/permissions-flow.drawio.png) — "quién le pide permiso a quién", flechas ① a ⑤. Desde la Etapa 9, ① la autoriza el JWT authorizer (en azul: autorización por token, no por IAM). Desde la Etapa 10, un bloque "Observabilidad" con ⑥ (access logs) y ⑦ (alarma → SNS) en rosa.
 
 ## 2. Recursos de AWS [CONVERSACIÓN]
 
@@ -54,7 +65,11 @@ Todos creados **a mano en la consola**, con tag `Project = cloud-security-checkl
 | CloudFront `cloud-sec-checklist-frontend` | Pay-as-you-go, OAC, bucket policy con `AWS:SourceArn` = la distribución, redirect HTTP→HTTPS, default root object `index.html`, error pages 403/404 → `/index.html` con 200 (D67, paso 8.7), dominio `<distribucion>.cloudfront.net`, sin WAF, sin logging | [03-cloudfront.md](03-cloudfront.md) |
 | Lambda `cloud-sec-checklist-api` | Python 3.14, arm64, 128 MB, timeout 3 s, sin Function URL, sin VPC, handler `handler.lambda_handler`, env `TABLE_NAME=cloud-sec-checklist-controls` | [04-lambda.md](04-lambda.md) |
 | Execution role `cloud-sec-checklist-api-role-<sufijo>` | Trust: `lambda.amazonaws.com`. Policy de logs creada por la consola + inline **`controls-table-crud`** (ver §5) | [04-lambda.md](04-lambda.md) |
-| Log group `/aws/lambda/cloud-sec-checklist-api` | Retención 1 semana | [04-lambda.md](04-lambda.md) |
+| Log group `/aws/lambda/cloud-sec-checklist-api` | Retención 1 semana. Desde la Etapa 10, **log format JSON**, nivel INFO (aplicación y sistema) | [04-lambda.md](04-lambda.md), [10-cloudwatch.md](10-cloudwatch.md) |
+| Log group `/aws/vendedlogs/apigateway/cloud-sec-checklist-http-api` | Access logs del stage `$default` en JSON (IP, `userAgent`, status, `authorizerError`, latencias, `sub`), retención 1 semana, clase Standard (2026-10-24). No incluye pedidos a rutas inexistentes | [10-cloudwatch.md](10-cloudwatch.md) |
+| Alarmas `openaegis-lambda-errors`, `openaegis-api-5xx`, `openaegis-api-4xx-pico` | Sum en 5 min, `≥` 1 / 1 / 50, *missing data* not breaching, acción → SNS. Verificadas con un simulacro (2026-10-25) | [10-cloudwatch.md](10-cloudwatch.md) |
+| SNS topic `openaegis-alarmas` | Standard, sin cifrado, suscripción email `<email>` confirmada | [10-cloudwatch.md](10-cloudwatch.md) |
+| Dashboard `OpenAegis` | 7 paneles: alarmas, métricas de API y Lambda, rechazos del authorizer, auditoría | [10-cloudwatch.md](10-cloudwatch.md) |
 | HTTP API `cloud-sec-checklist-http-api` | Stage `$default` con auto-deploy · throttling rate 10 / burst 20 · CORS Allow-Origin = solo `https://<distribucion>.cloudfront.net` · Allow-Methods `GET`, `POST`, `PATCH`, `DELETE` · AllowCredentials `false` · MaxAge `0` (verificado con `get-api` el 2026-10-13). Allow-Headers `content-type`, `authorization` desde la Etapa 9 (verificado el 2026-10-22) · **JWT authorizer `cognito-openaegis`** (issuer = el User Pool, audience = `<client-id>`) en las 5 rutas con scope `openid` (verificado con `get-authorizers` y `get-routes` el 2026-10-24) | [05-api-gateway.md](05-api-gateway.md) |
 | Cognito User Pool (`<user-pool-id>`) | Plan *Essentials* · MFA obligatorio (TOTP) · solo el admin crea usuarios · deletion protection · dominio del login `<dominio-cognito>` · app client `openaegis-spa` público (sin secret), Authorization Code + PKCE, scopes `openid email`, callbacks `/app/callback` y logout `/app` de localhost y CloudFront, access/ID token 60 min, refresh token 12 h, revocación activa (verificado el 2026-10-22) | [09-cognito.md](09-cognito.md) |
 | IAM Access Analyzer `openaegis-external-access` | Tipo `ACCOUNT` (*external access*, gratis), zona de confianza = la cuenta, `us-east-1`. Creado el 2026-10-15; 0 findings activos al crearlo. Detectivo: no modifica nada | [07-iam.md](07-iam.md) |
@@ -124,7 +139,9 @@ Contrato completo: [backend/openapi.yaml](../backend/openapi.yaml) (OpenAPI 3.1,
 | `PATCH /controls/{id}` | `Scan` por `code` (si viene) + `UpdateItem` con `attribute_exists(id)` y `ReturnValues=ALL_NEW` | 200 · 400 · 404 · 409 |
 | `DELETE /controls/{id}` | `DeleteItem` con `attribute_exists(id)` y `ReturnValues=ALL_OLD` | 200 `{"item": {...}}` (el borrado) · 400 · 404 |
 
-Errores: siempre `{"error": "<mensaje>"}`. Errores no previstos **no** se atrapan: la Lambda falla, API Gateway devuelve 500 y el traceback queda en CloudWatch (y en la métrica *Errors*).
+Errores: siempre `{"error": "<mensaje>"}`. Errores no previstos **no** se atrapan: la Lambda falla, API Gateway devuelve 500 y el traceback queda en CloudWatch como JSON (`errorType`, `errorMessage`, `stackTrace`), en la métrica *Errors* y en la alarma `openaegis-lambda-errors`.
+
+Logs (Etapa 10, D84): `handler.py` escribe una línea `request` por invocación (`route`, `apigw_request_id`, `user_sub`) y `controls.py` una de auditoría por cambio (`control creado/actualizado/eliminado` con `control_id`, `code`, `user_sub`). `responses.user_sub(event)` lee el claim `sub` que deja el JWT authorizer.
 
 ## 4. Modelo de datos — tabla `controls`
 
@@ -159,6 +176,8 @@ Comportamientos a tener en cuenta (del código):
 | ③ | API Gateway → Lambda | Resource-based policy de la Lambda: un statement por ruta (método + path), Principal `apigateway.amazonaws.com`, `lambda:InvokeFunction`, Condition `SourceArn` = `arn:aws:execute-api:us-east-1:<cuenta>:<api-id>/*/<MÉTODO>/<path>` (stage / método / path) |
 | ④ | Lambda → DynamoDB | Execution role (identity-based). Inline policy `controls-table-crud` |
 | ⑤ | Lambda → CloudWatch Logs | Execution role, policy de logs creada por la consola |
+| ⑥ | API Gateway → CloudWatch Logs (access logs, Etapa 10) | Entrega de logs administrada por AWS: sin execution role; al activarla, la consola usa permisos del usuario (`logs:CreateLogDelivery`, `logs:PutResourcePolicy`) |
+| ⑦ | CloudWatch Alarms → SNS (Etapa 10) | Topic policy (resource-based) por defecto: permite publicar a la propia cuenta (`AWS:SourceOwner`). Topic sin cifrado |
 
 Inline policy `controls-table-crud` [CONVERSACIÓN]:
 
