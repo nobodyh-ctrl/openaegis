@@ -3,7 +3,7 @@
 > Aplicación serverless en AWS para gestionar controles de seguridad cloud y, más adelante, evaluarlos con checks automáticos de solo lectura.
 > Proyecto **educativo y de portfolio**, construido etapa por etapa para entender cada servicio de AWS que usa. *(Antes: "Cloud Security Checklist".)*
 
-**Estado:** V1 en desarrollo. Etapas 0–9 completas (CRUD de controles, permisos auditados, frontend SPA con Cloudscape desplegado en S3 + CloudFront, y login con Cognito + MFA con la API protegida por JWT) + CI mínimo. Sigue la Etapa 10 (CloudWatch). Ver [Roadmap](#roadmap).
+**Estado:** V1 en desarrollo. Etapas 0–10 completas (CRUD de controles, permisos auditados, frontend SPA con Cloudscape desplegado en S3 + CloudFront, login con Cognito + MFA con la API protegida por JWT, y observabilidad con CloudWatch: logs de auditoría, alarmas por email y dashboard) + CI mínimo. Sigue la Etapa 11 (checks de seguridad read-only). Ver [Roadmap](#roadmap).
 
 ---
 
@@ -24,6 +24,8 @@ En las próximas etapas va a ejecutar **checks automáticos de solo lectura** co
 | API HTTP con throttling y CORS restringido | ✅ |
 | Login en la SPA con Cognito: registro cerrado, MFA obligatorio, Authorization Code + PKCE, renovación y logout con revocación | ✅ |
 | API protegida con un JWT authorizer: sin token válido → `401`, sin el scope `openid` → `403`, sin invocar la Lambda | ✅ |
+| Logs JSON con auditoría (quién creó, editó o borró cada control) y access logs de la API con el motivo de cada rechazo | ✅ |
+| Alarmas por email (errores de la Lambda, `5xx` y picos de `4xx`) y dashboard en CloudWatch, verificados con un simulacro de falla | ✅ |
 | `GET /controls` — listar controles | ✅ |
 | `GET /controls/{id}` — obtener un control | ✅ |
 | `POST /controls` — crear un control (validación de tipos, largos, enums, `code` único, allowlist de campos) | ✅ |
@@ -41,7 +43,10 @@ Navegador ──HTTPS──► CloudFront ──OAC──► S3 (privado)       
     │
     └──Bearer <access token>──► API Gateway (HTTP API) ──► Lambda (Python) ──► DynamoDB
                                 throttling + CORS            │
-                                JWT authorizer (401/403)     └──► CloudWatch Logs
+                                JWT authorizer (401/403)     └──► CloudWatch Logs (JSON)
+                                     │                                     │
+                                     └───────── access logs ──────────────►┤
+                                                                           └──► alarmas → SNS → email · dashboard
 ```
 
 Todo corre en una sola cuenta y en una sola región (`us-east-1`). Detalle completo (recursos, permisos, flujo de una request, modelo de datos): **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
@@ -68,7 +73,7 @@ Python puro, sin frameworks ni dependencias externas, separado por responsabilid
 
 ## Por qué esta arquitectura
 
-Cada decisión está registrada con su motivo y sus alternativas en **[docs/DECISIONS.md](docs/DECISIONS.md)**; las seis más importantes tienen un ADR completo en **[docs/architecture-decisions/](docs/architecture-decisions/)**.
+Cada decisión está registrada con su motivo y sus alternativas en **[docs/DECISIONS.md](docs/DECISIONS.md)**; las ocho más importantes tienen un ADR completo en **[docs/architecture-decisions/](docs/architecture-decisions/)**.
 
 ### Por qué serverless
 
@@ -109,8 +114,8 @@ Serverless, pago por uso y acceso **por IAM**: no hay usuario y contraseña de b
 - **Autorización en API Gateway:** un JWT authorizer valida firma, emisor, cliente, vencimiento y el scope `openid` **antes** de la Lambda. Desventaja aceptada: el access token no se puede revocar (dura 1 h).
 - **CORS** restringido al dominio del frontend (CORS **no** es autenticación: lo aplica el navegador).
 - **Throttling** en la API para limitar el abuso y el costo (*denial of wallet*).
-- **Logs** con ruta e IDs de request, **sin** el event completo (que incluye headers e IP).
-- Pendiente: alarmas (Etapa 10).
+- **Logs** en JSON con ruta, IDs de request y el `sub` de quien hace cada cambio (auditoría), **sin** el event completo ni el body. **Access logs** de API Gateway con IP, `userAgent` y el motivo de cada rechazo del authorizer, con retención de 1 semana.
+- **Alarmas** por email ante errores de la Lambda, `5xx` de la API y picos de `4xx` (posible ataque), probadas con una falla real. Desventaja: HTTP API no registra los pedidos a rutas inexistentes; un escaneo solo se ve como un pico de `4xx`.
 
 ## Costos
 
@@ -135,11 +140,11 @@ Procedimiento completo: [AGENTS.md §7](AGENTS.md#7-cómo-desplegar-y-probar-sol
 
 ## Destrucción
 
-Cada doc de etapa tiene su sección **"Cómo revertir esta etapa"**. Orden sugerido para eliminar todo, de lo más dependiente a lo menos: JWT authorizer → rutas y API → statements de la resource-based policy de la Lambda → Lambda y su log group → rol de ejecución → tabla DynamoDB → distribución de CloudFront (deshabilitar y luego borrar) → bucket S3 (vaciar y luego borrar) → User Pool de Cognito (desactivar la deletion protection y borrar) → verificar por el tag `Project`. Con CDK (Etapa 12) esto pasa a ser `cdk destroy` + verificación.
+Cada doc de etapa tiene su sección **"Cómo revertir esta etapa"**. Orden sugerido para eliminar todo, de lo más dependiente a lo menos: dashboard, alarmas y topic de SNS → access logs y su log group → JWT authorizer → rutas y API → statements de la resource-based policy de la Lambda → Lambda y su log group → rol de ejecución → tabla DynamoDB → distribución de CloudFront (deshabilitar y luego borrar) → bucket S3 (vaciar y luego borrar) → User Pool de Cognito (desactivar la deletion protection y borrar) → verificar por el tag `Project`. Con CDK (Etapa 12) esto pasa a ser `cdk destroy` + verificación.
 
 ## Roadmap
 
-**V1 (en curso):** cuenta segura → S3 → CloudFront → Lambda → API Gateway → DynamoDB → IAM → frontend → Cognito → **CloudWatch (siguiente)** → checks read-only + findings + score → CDK → CI → tests → documentación → demo.
+**V1 (en curso):** cuenta segura → S3 → CloudFront → Lambda → API Gateway → DynamoDB → IAM → frontend → Cognito → CloudWatch → **checks read-only (siguiente)** + findings + score → CDK → CI → tests → documentación → demo.
 
 **Después de la V1:** una revisión de arquitectura V1 → V2 y una evolución progresiva hacia Cloud/DevSecOps (containers, Terraform, CI/CD con OIDC, observabilidad, remediación controlada). Cada tecnología se agrega solo si resuelve un problema concreto.
 

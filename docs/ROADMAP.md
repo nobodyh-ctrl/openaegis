@@ -1,6 +1,6 @@
 # Roadmap
 
-> Estado al 2026-10-24. **Regla absoluta: terminar la V1 (Bloque A) antes de empezar cualquier cosa del Bloque B.**
+> Estado al 2026-10-25. **Regla absoluta: terminar la V1 (Bloque A) antes de empezar cualquier cosa del Bloque B.**
 > El Bloque B es una **visión**, no un plan cerrado: cada tecnología se agrega solo si resuelve un problema real (*problema → requisito → alternativas → trade-offs → decisión → implementación → testing → observación → documentación*).
 
 ## Bloque A — V1: Cloud Security Checklist / Assessment (read-only)
@@ -27,8 +27,8 @@ Orden original 0–16. **Cambio acordado:** Lambda pasó a ser la Etapa 4 y API 
 | 7 | IAM: auditoría y least privilege | ✅ (2026-10-15) | [07-iam.md](07-iam.md) |
 | 13a | CI mínimo (adelantado, D60): tests unitarios sin AWS + chequeo de identificadores | ✅ (2026-10-15) | [13a-ci-minimo.md](13a-ci-minimo.md) |
 | 8 | Frontend: SPA React + Vite + TS + Cloudscape (D75/D76) contra la API | ✅ (2026-10-21) | [08-frontend.md](08-frontend.md) |
-| **9** | **Cognito: login con MFA en la SPA + JWT authorizer en el HTTP API (D80–D83, ADR-007)** | ✅ (2026-10-24) | [09-cognito.md](09-cognito.md) |
-| 10 | CloudWatch: métricas, alarmas, debugging, manejo de errores centralizado | [PENDIENTE] | — |
+| 9 | Cognito: login con MFA en la SPA + JWT authorizer en el HTTP API (D80–D83, ADR-007) | ✅ (2026-10-24) | [09-cognito.md](09-cognito.md) |
+| **10** | **CloudWatch: logs JSON con auditoría, access logs, alarmas por email, dashboard y simulacro de falla (D84–D88, ADR-008)** | ✅ (2026-10-25) | [10-cloudwatch.md](10-cloudwatch.md) |
 | 11 | boto3 + Security Checks read-only → findings → score → dashboard | [PENDIENTE] | — |
 | 12 | AWS CDK (Python): toda la infraestructura como código; habilita el modelo self-hosted | [PENDIENTE] | — |
 | 13 | GitHub Actions / CI | [PENDIENTE] — opción **A** (D59): se completa con `cdk synth` después de la Etapa 12 | — |
@@ -54,7 +54,7 @@ Orden original 0–16. **Cambio acordado:** Lambda pasó a ser la Etapa 4 y API 
 9. ✅ Etapa 7 — IAM: inventario, 5 hallazgos con severidad, D56–D58 aplicados y verificados, checkpoint 5/5, [07-iam.md](07-iam.md).
 10. ✅ Etapa 8 (2026-10-21) — frontend SPA con React + Vite + TypeScript + Cloudscape Design System (D75, teal como acento D76; [ADR-006](architecture-decisions/006-frontend-spa.md)) bajo `/app`: dashboard por estado y severidad, tabla de controles con filtros, crear/editar/borrar/cambiar estado; proxy de Vite para desarrollo; CloudFront configurado para rutas de SPA; deploy desde CloudShell; job de frontend en el CI. Completa el 2026-10-21: SPA desplegada (D79) y CRUD verificado en producción (ver [08-frontend.md](08-frontend.md)).
 11. ✅ Etapa 9 — Cognito (2026-10-22 → 2026-10-24): User Pool con registro cerrado y MFA obligatorio, login con Authorization Code + PKCE en la SPA (`oidc-client-ts`), access token en cada llamada y JWT authorizer con scope `openid` en las 5 rutas; verificado en producción (`401` sin token, `403` con ID token, 0 ejecuciones de la Lambda ante tokens falsos). Manejo del `401`/`403` en la SPA desplegado y probado (PR #13), docs (PR #14), diagramas (PR #15) y checkpoint. Queda como mejora: patrones de Cognito en `check_identifiers.py`. [09-cognito.md](09-cognito.md).
-12. Etapa 10 — CloudWatch: métricas (*Errors*, *Throttles*, *Duration*), alarmas (verificar costo), manejo de errores centralizado, logs estructurados.
+12. ✅ Etapa 10 — CloudWatch (2026-10-24 → 2026-10-25): logs JSON con el `sub` de cada cambio (PR #17), access logs de API Gateway con el motivo de cada rechazo, Logs Insights, 3 alarmas → SNS → email, dashboard `OpenAegis` y simulacro de falla que encontró una alarma mal configurada. USD 0. Limitación conocida: HTTP API no loguea las rutas inexistentes. [10-cloudwatch.md](10-cloudwatch.md).
 13. Etapa 11 — checks read-only con boto3 (empezar por S3 Block Public Access, S3 Encryption, CloudTrail habilitado) → tabla de findings → score → dashboard. Diseñar la tabla de findings (requisito: consultar por `control_id` de forma eficiente). Decidir `SecurityAudit` vs. policy propia. Decidir qué regiones evalúa cada check.
 14. Etapa 12 — CDK en Python: recrear todo como código, borrar los recursos manuales (deletion protection de la tabla está desactivado para esto), `cdk synth / deploy / destroy`.
 15. Etapa 13 — CI según la opción que elija el usuario.

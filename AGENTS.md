@@ -1,6 +1,6 @@
 # AGENTS.md — Instrucciones para agentes que trabajen en OpenAegis
 
-> Última actualización: 2026-10-24. Este archivo es la **puerta de entrada** para cualquier sesión nueva (Claude Code, Amazon Q u otro agente). Leelo completo antes de proponer cambios.
+> Última actualización: 2026-10-25. Este archivo es la **puerta de entrada** para cualquier sesión nueva (Claude Code, Amazon Q u otro agente). Leelo completo antes de proponer cambios.
 
 Convenciones de estado usadas en toda la documentación:
 
@@ -44,8 +44,8 @@ openaegis/
 ├── .gitignore                ← secretos, __pycache__, cdk.out/, *.zip, .claude/
 ├── .gitattributes            ← finales de línea LF en cualquier SO (D78)
 ├── architecture/
-│   ├── architecture.drawio.png       ← diagrama editable (extensión draw.io de VS Code); actualizado en la Etapa 9 (Cognito y JWT authorizer)
-│   └── permissions-flow.drawio.png   ← "quién le pide permiso a quién" (flechas ① a ⑤; ① autorizada por el JWT authorizer)
+│   ├── architecture.drawio.png       ← diagrama editable (extensión draw.io de VS Code); actualizado en la Etapa 10 (Cognito, JWT authorizer, CloudWatch, alarmas → SNS)
+│   └── permissions-flow.drawio.png   ← "quién le pide permiso a quién" (flechas ① a ⑦; ① autorizada por el JWT authorizer; ⑥ y ⑦ de observabilidad)
 ├── backend/                  ← código de la Lambda (Python, sin dependencias externas)
 │   ├── handler.py            ← punto de entrada: ROUTES + lambda_handler
 │   ├── controls.py           ← lógica de cada ruta de /controls
@@ -54,8 +54,8 @@ openaegis/
 │   ├── responses.py          ← formato de entrada/salida de API Gateway (payload 2.0)
 │   └── openapi.yaml          ← CONTRATO de la API (OpenAPI 3.1, D69): actualizarlo si cambia el backend
 ├── docs/
-│   ├── 00..09-*.md, 13a-ci-minimo.md  ← un doc por etapa
-│   ├── architecture-decisions/  ← ADR-001 a ADR-007 (decisiones grandes)
+│   ├── 00..10-*.md, 13a-ci-minimo.md  ← un doc por etapa
+│   ├── architecture-decisions/  ← ADR-001 a ADR-008 (decisiones grandes)
 │   ├── PROJECT_CONTEXT.md · ARCHITECTURE.md · ROADMAP.md · DECISIONS.md · LEARNING_LOG.md
 ├── frontend/                 ← SPA React + Vite + TS + Cloudscape Design System (D75, teal como acento D76; Etapa 8). Dependencias: D68
 │   ├── .npmrc                ← save-exact, ignore-scripts
@@ -91,7 +91,8 @@ Localmente existe `lambda.zip` (artefacto de deploy, ignorado por `.gitignore`).
 | Job de frontend en el CI (paso 8.6): `npm ci`, typecheck, build, `npm audit` | ✅ [CONFIRMADO-REPO] + PR #5 mergeado con `checks` en verde (2026-10-21) |
 | Frontend SPA (React + Vite + TS + Cloudscape, D75/D76) | ✅ código [CONFIRMADO-REPO] — implementado y verificado en local; **desplegado** en CloudFront el 2026-10-21 (paso 8.8, D79) y CRUD verificado en producción (8.9) [CONVERSACIÓN]. **Etapa 8 completa** |
 | Cognito (Etapa 9): User Pool con MFA, login en la SPA, JWT authorizer en las 5 rutas | ✅ [CONVERSACIÓN, 2026-10-24]: verificado en producción (11 pruebas, incluido el `401` → login y el `403` en la SPA); checkpoint hecho. [docs/09-cognito.md](docs/09-cognito.md) |
-| CloudWatch avanzado, checks + findings, CDK, `cdk synth` en CI, tests de `controls.py` | [PENDIENTE] (Etapas 10–16) |
+| CloudWatch (Etapa 10): logs JSON con `user_sub`, access logs de API Gateway, 3 alarmas → SNS → email, dashboard `OpenAegis` | ✅ código [CONFIRMADO-REPO] (PR #17) + configuración [CONVERSACIÓN, 2026-10-25], verificada con un simulacro de falla. [docs/10-cloudwatch.md](docs/10-cloudwatch.md) |
+| Checks + findings, CDK, `cdk synth` en CI, tests de `controls.py` | [PENDIENTE] (Etapas 11–16) |
 
 Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -107,7 +108,7 @@ Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 | Ahora (V1, implementado) | V1, pendiente | Futuro (Bloque B, a evaluar) |
 |---|---|---|
-| Python 3.14 (arm64) · AWS Lambda · API Gateway HTTP API (+ JWT authorizer) · DynamoDB · S3 · CloudFront (OAC) · IAM · CloudWatch Logs · boto3 (incluido en el runtime) · Cognito User Pool · SPA React + Vite + TypeScript + Cloudscape + `oidc-client-ts` | CloudWatch métricas/alarmas · checks con boto3 · AWS CDK (Python) · GitHub Actions (alcance por decidir) · moto [PROPUESTA] | Docker · Terraform · ECR · ECS/Fargate · FastAPI · OIDC · OpenTelemetry/X-Ray · SQS · Ansible · Trivy/Bandit/Semgrep/Checkov/ansible-lint · IA para explicar findings · k6 |
+| Python 3.14 (arm64) · AWS Lambda · API Gateway HTTP API (+ JWT authorizer) · DynamoDB · S3 · CloudFront (OAC) · IAM · CloudWatch (logs JSON, access logs, alarmas, dashboard) · SNS (email de alarmas) · boto3 (incluido en el runtime) · Cognito User Pool · SPA React + Vite + TypeScript + Cloudscape + `oidc-client-ts` | Checks con boto3 · AWS CDK (Python) · GitHub Actions (alcance por decidir) · moto [PROPUESTA] | Docker · Terraform · ECR · ECS/Fargate · FastAPI · OIDC · OpenTelemetry/X-Ray · SQS · Ansible · Trivy/Bandit/Semgrep/Checkov/ansible-lint · IA para explicar findings · k6 |
 
 ## 7. Cómo desplegar y probar (solo lo verificado)
 
@@ -143,6 +144,8 @@ curl -i -X PATCH $API/controls/<id> -H "$AUTH" -H "Content-Type: application/jso
 ```bash
 aws logs tail /aws/lambda/cloud-sec-checklist-api --since 10m --follow
 aws logs tail /aws/lambda/cloud-sec-checklist-api --since 1h --filter-pattern ERROR
+aws logs tail /aws/lambda/cloud-sec-checklist-api --since 1h --filter-pattern '{ $.message = "control eliminado" }'   # por campo (logs JSON, D84)
+aws logs tail /aws/vendedlogs/apigateway/cloud-sec-checklist-http-api --since 10m        # access logs (incluye los 401/403)
 ```
 
 **Verificar el estado real de AWS (solo lectura, para que lo corra el usuario):**
@@ -179,10 +182,10 @@ Cubren `validation.py`, `responses.py` y el propio chequeo. `controls.py` todav�
 3. **No implementar funcionalidades durante una tarea de documentación**, y viceversa: no mezclar refactor con funcionalidad nueva en un mismo commit.
 4. **AWS:** no desplegar, modificar ni destruir recursos, ni generar gastos, sin autorización explícita. **Advertir el costo antes** de crear cualquier recurso y **verificar precios y Free Tier en la documentación oficial**. Nunca asumir que algo es gratis.
 5. ⚠️ **Free plan:** crear una **AWS Organization**, activar **IAM Identity Center** o **Control Tower**, o hacer clic en *upgrade plan* **pasa la cuenta al Paid plan y hace vencer los créditos**. Nunca sugerirlo sin advertirlo.
-6. **Secretos e identificadores:** nunca escribir en el repo el ID de cuenta, el ID de la API, el dominio de CloudFront, el sufijo del bucket, el nombre del IAM user, IDs de distribución ni emails. Usar `<cuenta>`, `<api-id>`, `<distribucion>`, `<sufijo>`, `<admin-user>`, `<distribution-id>` y, desde la Etapa 9, `<user-pool-id>`, `<client-id>`, `<dominio-cognito>`. **Nunca** pedir ni aceptar tokens de Cognito o un `code` en el chat: para probar, `read -rs`. **Recordarle al usuario** que tape esos datos cuando pega salidas.
+6. **Secretos e identificadores:** nunca escribir en el repo el ID de cuenta, el ID de la API, el dominio de CloudFront, el sufijo del bucket, el nombre del IAM user, IDs de distribución ni emails. Usar `<cuenta>`, `<api-id>`, `<distribucion>`, `<sufijo>`, `<admin-user>`, `<distribution-id>` y, desde la Etapa 9, `<user-pool-id>`, `<client-id>`, `<dominio-cognito>` y, desde la Etapa 10, `<email>` (suscripción de SNS). En las salidas de CloudWatch, además, el ID de la cuenta aparece en los ARN (emails de alarmas, `errorMessage`), el ID de la API en el nombre de los log streams del access log, y hay IPs y `sub`. **Nunca** pedir ni aceptar tokens de Cognito o un `code` en el chat: para probar, `read -rs`. **Recordarle al usuario** que tape esos datos cuando pega salidas.
 7. **`main` está protegida (D74): todo cambio va en una rama `tipo/descripcion` y entra por PR con el check `checks` en verde.** Antes de escribir, `git switch -c <rama>` desde `main` actualizada. **Commits, pushes y cambios destructivos solo a pedido explícito.** Mensajes en español, estilo `tipo(ámbito): descripción` (ver `git log`), con la atribución que indique el entorno.
 8. **Least privilege** en cada permiso nuevo: acciones concretas sobre ARNs concretos. Los checks de la V1 son **read-only**.
-9. **Código:** Python simple, sin frameworks ni dependencias salvo que resuelvan un problema real. `validation.py` no importa AWS ni HTTP; `repository.py` es el único que importa boto3. Atrapar **solo** las excepciones que se saben manejar (nada de `except Exception`).
+9. **Código:** Python simple, sin frameworks ni dependencias salvo que resuelvan un problema real. `validation.py` no importa AWS ni HTTP; `repository.py` es el único que importa boto3. Atrapar **solo** las excepciones que se saben manejar (nada de `except Exception`). Logs con `logging` (JSON nativo de Lambda, D84), nunca `print`; nunca loguear el body, el event completo, tokens ni emails (el usuario se identifica por `user_sub`).
 
 ## 9. Cómo enseñar (el usuario lo exige)
 
@@ -203,8 +206,8 @@ El usuario pidió un **tutor técnico exigente, no un generador de código**. Re
 ## 10. Cómo documentar
 
 - **Un doc por etapa** en `docs/NN-tema.md`, con la estructura de los existentes: objetivo, conceptos, decisiones (`D#`), configuración, verificación, debugging, costos, relación con Cloud Security, cómo revertir, cosas que NO hacer. Con marcadores en lugar de identificadores reales.
-- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D84**), y al doc de su etapa.
-- **ADRs** (`docs/architecture-decisions/NNN-tema.md`, D55): solo para decisiones **grandes**; `DECISIONS.md` es el índice de todas. Formato: Contexto, Decisión, Por qué, Alternativas consideradas, Ventajas, Desventajas, Consideraciones de seguridad, Consideraciones de costo, Consecuencias, Evolución futura (más estado, fecha y decisiones relacionadas). Existen ADR-001 a ADR-007; el siguiente es **008**. Al crear uno, agregarlo a la tabla de `DECISIONS.md`.
+- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D89**), y al doc de su etapa.
+- **ADRs** (`docs/architecture-decisions/NNN-tema.md`, D55): solo para decisiones **grandes**; `DECISIONS.md` es el índice de todas. Formato: Contexto, Decisión, Por qué, Alternativas consideradas, Ventajas, Desventajas, Consideraciones de seguridad, Consideraciones de costo, Consecuencias, Evolución futura (más estado, fecha y decisiones relacionadas). Existen ADR-001 a ADR-008; el siguiente es **009**. Al crear uno, agregarlo a la tabla de `DECISIONS.md`.
 - **README:** contar la evolución, con ventajas **y desventajas**; **solo lo implementado**.
 - Actualizar ROADMAP y ARCHITECTURE cuando algo cambie de estado.
 

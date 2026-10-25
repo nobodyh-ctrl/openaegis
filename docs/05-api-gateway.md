@@ -359,7 +359,7 @@ Según la [página oficial de precios de API Gateway](https://aws.amazon.com/api
 | Riesgo | Mitigación |
 |---|---|
 | Denial of wallet | Throttling (D27) + Cognito (Etapa 9) |
-| Access logs en CloudWatch | No activados |
+| Access logs en CloudWatch | No activados en esta etapa. **Activados en la Etapa 10** (D85, JSON, retención 1 semana): ver [10-cloudwatch.md §4.3](10-cloudwatch.md) |
 | WAF | No utilizado (D15) |
 
 ## 8. Relación con Cloud Security
