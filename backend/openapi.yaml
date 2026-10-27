@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: OpenAegis API
-  version: 0.1.0
-  summary: CRUD de controles de seguridad cloud.
+  version: 0.2.0
+  summary: CRUD de controles de seguridad cloud, scans read-only y findings.
   description: |
     Contrato de la API de OpenAegis (V1). Es la **fuente del contrato** (D69): describe lo que
     hacen `backend/controls.py` y `backend/validation.py`. Si cambia el backend, se actualiza este archivo.
@@ -32,6 +32,8 @@ security: []
 tags:
   - name: controls
     description: Controles de seguridad (reglas del checklist).
+  - name: scans
+    description: Scans de la cuenta con checks de solo lectura (Etapa 11) y sus findings.
 
 paths:
   /controls:
@@ -65,7 +67,8 @@ paths:
       description: |
         El servidor genera `id` (UUID v4), `created_at` y `updated_at`. Los campos que no están
         en el schema se **ignoran** (allowlist contra mass assignment). Los textos se guardan sin
-        espacios al principio ni al final. El `code` tiene que ser único.
+        espacios al principio ni al final. El `code` tiene que ser único. Con un `check_id` no vacío
+        no se puede enviar `status` (→ 400): lo define el scanner.
       requestBody:
         required: true
         content:
@@ -118,6 +121,10 @@ paths:
         la creación (ninguno es obligatorio, pero si viene, no puede estar vacío). `updated_at` lo pone
         el servidor; `id` y `created_at` no se pueden cambiar. Si no queda ningún campo válido → 400.
         Nunca crea un control nuevo: si el id no existe → 404.
+
+        Controles automáticos (con `check_id`, D92): el `status` lo escribe el scanner (D94), así que
+        enviar `status` → 409. Enviar `check_id: ""` lo pasa a manual y **borra sus findings** (D95);
+        en ese mismo PATCH se puede enviar `status`.
       requestBody:
         required: true
         content:
@@ -143,8 +150,8 @@ paths:
       summary: Borrar un control
       description: |
         Borrado real (D53). Devuelve el control tal como era antes de borrarlo. Si el id no existe → 404
-        (no hay éxito silencioso, D54). Cuando existan findings (Etapa 11), borrar un control con findings
-        va a responder 409.
+        (no hay éxito silencioso, D54). Si el control tiene findings → 409 (D40, D95): primero hay que
+        pasarlo a manual con `PATCH {"check_id": ""}`, que borra sus findings.
       responses:
         "200":
           description: El control borrado.
@@ -153,6 +160,79 @@ paths:
               schema: { $ref: "#/components/schemas/ItemResponse" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /scans:
+    post:
+      tags: [scans]
+      operationId: startScan
+      summary: Iniciar un scan
+      description: |
+        Invoca la Lambda `openaegis-scanner` de forma **asincrónica** (D93) y responde enseguida. El scan
+        corre los checks de los controles automáticos, guarda los findings y actualiza el `status` de
+        esos controles. El resultado se consulta con `GET /scans/latest`. Si el scanner falla, esta
+        ruta igual respondió 202: lo detecta la alarma `openaegis-scanner-errors`.
+      responses:
+        "202":
+          description: Scan aceptado; todavía no terminó.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: { type: string }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /scans/latest:
+    get:
+      tags: [scans]
+      operationId: getLatestScan
+      summary: Resumen del último scan
+      responses:
+        "200":
+          description: El último scan, o `null` si nunca se escaneó.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [item]
+                properties:
+                  item:
+                    oneOf:
+                      - { $ref: "#/components/schemas/Scan" }
+                      - { type: "null" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /findings:
+    get:
+      tags: [scans]
+      operationId: listFindings
+      summary: Findings de un control
+      description: DynamoDB `Query` por `control_id` (PK de la tabla de findings). Uno por recurso evaluado.
+      parameters:
+        - name: control_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Findings del control (lista vacía si no tiene).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, count]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Finding" }
+                  count: { type: integer, minimum: 0 }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         "500": { $ref: "#/components/responses/InternalError" }
 
@@ -177,6 +257,46 @@ components:
     Status:
       type: string
       enum: [PASS, REVIEW, FAIL]
+
+    CheckId:
+      type: string
+      enum: ["", s3-account-public-access-block]
+      description: |
+        Check automático que evalúa el control (D92). Ausente o "" = control manual. Los valores válidos
+        son las claves de `CHECKS` en `backend/checks.py`.
+
+    FindingStatus:
+      type: string
+      enum: [PASS, FAIL, ERROR]
+      description: ERROR = no se pudo evaluar (por ejemplo, AccessDenied). No es ni PASS ni FAIL.
+
+    Finding:
+      type: object
+      required: [control_id, resource_id, check_id, status, evidence, evaluated_at, scan_id]
+      properties:
+        control_id: { type: string, format: uuid }
+        resource_id:
+          type: string
+          description: ARN del recurso evaluado, `account` para los checks de la cuenta o `check` si el check no se pudo correr.
+          examples: [account]
+        check_id: { type: string }
+        status: { $ref: "#/components/schemas/FindingStatus" }
+        evidence: { type: string, examples: ["Desactivadas: BlockPublicPolicy."] }
+        evaluated_at: { type: string, format: date-time }
+        scan_id: { type: string, description: "started_at del scan que lo escribió." }
+
+    Scan:
+      type: object
+      required: [started_at, finished_at, controls_evaluated, pass_count, fail_count, error_count, stale_deleted]
+      properties:
+        started_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+        controls_evaluated: { type: integer, minimum: 0 }
+        pass_count: { type: integer, minimum: 0 }
+        fail_count: { type: integer, minimum: 0 }
+        error_count: { type: integer, minimum: 0 }
+        stale_deleted: { type: integer, minimum: 0, description: "Findings borrados de recursos que ya no existen." }
+        requested_by: { type: string, description: "sub de Cognito de quien lo pidió. Ausente si se invocó desde la consola." }
 
     Control:
       type: object
@@ -209,6 +329,7 @@ components:
           type: string
           maxLength: 2000
           description: Opcional. Ausente si no se envió; puede ser "" si se envió vacío.
+        check_id: { $ref: "#/components/schemas/CheckId" }
         created_at:
           type: string
           format: date-time
@@ -236,6 +357,7 @@ components:
           default: REVIEW
         description: { type: string, maxLength: 2000 }
         remediation: { type: string, maxLength: 2000 }
+        check_id: { $ref: "#/components/schemas/CheckId" }
 
     ControlPatch:
       type: object
@@ -250,6 +372,7 @@ components:
         status: { $ref: "#/components/schemas/Status" }
         description: { type: string, maxLength: 2000 }
         remediation: { type: string, maxLength: 2000 }
+        check_id: { $ref: "#/components/schemas/CheckId" }
 
     ItemResponse:
       type: object
@@ -285,7 +408,9 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
           example: { error: Control no encontrado. }
     Conflict:
-      description: Ya existe otro control con ese `code`.
+      description: |
+        Ya existe otro control con ese `code`; se envió `status` a un control automático; o se intentó
+        borrar un control que tiene findings.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }

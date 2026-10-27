@@ -10,6 +10,7 @@ from checks import (  # noqa: E402
     ACCOUNT_RESOURCE,
     CHECK_RESOURCE,
     ScanContext,
+    control_status,
     run_checks,
     s3_account_public_access_block,
 )
@@ -116,6 +117,23 @@ class RunChecksTests(unittest.TestCase):
 
     def test_sin_controles_no_hay_findings(self):
         self.assertEqual(run_checks([], context_with(FakeS3Control())), [])
+
+
+
+class ControlStatusTests(unittest.TestCase):
+    """Status de un control automático a partir de sus findings (D94)."""
+
+    def test_todos_pass_es_pass(self):
+        self.assertEqual(control_status(["PASS", "PASS"]), "PASS")
+
+    def test_un_fail_manda_aunque_haya_error(self):
+        self.assertEqual(control_status(["PASS", "ERROR", "FAIL"]), "FAIL")
+
+    def test_un_error_sin_fail_es_review(self):
+        self.assertEqual(control_status(["PASS", "ERROR"]), "REVIEW")
+
+    def test_sin_findings_es_review(self):
+        self.assertEqual(control_status([]), "REVIEW")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 import logging
 
 import controls
+import scans
 from responses import build_response, user_sub
 
 # Con el log format JSON de Lambda, cada logger.info(...) sale como un JSON con
@@ -14,6 +15,9 @@ ROUTES = {
     "POST /controls": controls.create_control,
     "PATCH /controls/{id}": controls.update_control,
     "DELETE /controls/{id}": controls.delete_control,
+    "POST /scans": scans.start_scan,
+    "GET /scans/latest": scans.latest_scan,
+    "GET /findings": scans.list_findings,
 }
 
 

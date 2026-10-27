@@ -2,8 +2,12 @@
 
 import uuid
 
+from checks import CHECKS
+
 SEVERITY_VALUES = {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
 STATUS_VALUES = {"PASS", "REVIEW", "FAIL"}
+# "" = control manual. Cualquier otro valor tiene que ser un check que existe (D92).
+CHECK_ID_VALUES = set(CHECKS) | {""}
 
 FIELD_RULES = {
     "code":        {"required": True,  "max_len": 20},
@@ -14,6 +18,7 @@ FIELD_RULES = {
     "status":      {"required": False, "allowed": STATUS_VALUES, "default": "REVIEW"},
     "description": {"required": False, "max_len": 2000},
     "remediation": {"required": False, "max_len": 2000},
+    "check_id":    {"required": False, "allowed": CHECK_ID_VALUES},
 }
 
 
@@ -44,7 +49,8 @@ def validate_fields(body, partial=False):
             return None, f"'{field}' no puede superar los {rules['max_len']} caracteres."
 
         if "allowed" in rules and value not in rules["allowed"]:
-            return None, f"'{field}' debe ser uno de: {', '.join(sorted(rules['allowed']))}."
+            allowed = ", ".join(v or '""' for v in sorted(rules["allowed"]))
+            return None, f"'{field}' debe ser uno de: {allowed}."
 
         cleaned[field] = value
 

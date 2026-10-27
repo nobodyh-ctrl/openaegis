@@ -4,11 +4,17 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
+import findings_repository
 import repository
 from responses import build_response, error_response, parse_json_body, user_sub
 from validation import validate_control_id, validate_fields
 
 logger = logging.getLogger(__name__)
+
+AUTOMATIC_STATUS_ERROR = (
+    "El status de un control automático lo define el scanner. "
+    "Para editarlo a mano, pasalo a manual (check_id vacío)."
+)
 
 
 def _now_utc():
@@ -49,6 +55,10 @@ def create_control(event):
     if err:
         return error_response(400, err)
 
+    # En la creación, status siempre tiene valor (default REVIEW): se mira si vino en el body
+    if cleaned.get("check_id") and "status" in body:
+        return error_response(400, AUTOMATIC_STATUS_ERROR)
+
     if repository.find_control_by_code(cleaned["code"]):
         return error_response(409, f"Ya existe un control con el código '{cleaned['code']}'.")
 
@@ -79,6 +89,16 @@ def update_control(event):
     if err:
         return error_response(400, err)
 
+    current = repository.get_control(control_id)
+    if current is None:
+        return error_response(404, "Control no encontrado.")
+
+    # Se calcula ANTES del update: no depender de que el item leído siga intacto después
+    was_automatic = bool(current.get("check_id"))
+    check_id_after = cleaned.get("check_id", current.get("check_id"))
+    if "status" in cleaned and check_id_after:
+        return error_response(409, AUTOMATIC_STATUS_ERROR)
+
     if "code" in cleaned:
         existing = repository.find_control_by_code(cleaned["code"])
         if existing and existing["id"] != control_id:
@@ -91,6 +111,15 @@ def update_control(event):
         return error_response(404, "Control no encontrado.")
 
     _log_change("actualizado", event, item)
+
+    # Pasó de automático a manual: sus findings ya no se actualizarían nunca (D95)
+    if was_automatic and not check_id_after:
+        deleted = findings_repository.delete_all_findings(control_id)
+        logger.info(
+            "findings eliminados",
+            extra={"control_id": control_id, "deleted": deleted, "user_sub": user_sub(event)},
+        )
+
     return build_response(200, {"item": item})
 
 
@@ -98,6 +127,12 @@ def delete_control(event):
     control_id, err = validate_control_id(event.get("pathParameters", {}).get("id"))
     if err:
         return error_response(400, err)
+
+    if findings_repository.has_findings(control_id):
+        return error_response(
+            409,
+            "El control tiene findings. Pasalo a manual (check_id vacío) antes de eliminarlo: eso borra sus findings.",
+        )
 
     item = repository.delete_control(control_id)
     if item is None:

@@ -72,3 +72,13 @@ def run_checks(controls, ctx):
             results = check(ctx)
         findings.extend({"control_id": control["id"], "check_id": check_id, **r} for r in results)
     return findings
+
+
+def control_status(statuses):
+    """Status de un control automático a partir de los de sus findings (D94).
+    Un FAIL manda; un ERROR (o no tener findings) deja el control en REVIEW: no se pudo confirmar que cumple."""
+    if "FAIL" in statuses:
+        return "FAIL"
+    if "ERROR" in statuses or not statuses:
+        return "REVIEW"
+    return "PASS"

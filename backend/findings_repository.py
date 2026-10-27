@@ -33,19 +33,52 @@ def save_findings(findings):
             batch.put_item(Item=finding)
 
 
-def delete_stale_findings(control_id, scan_id):
-    """Borra los findings del control que NO escribió este scan: recursos que ya no existen. Retorna cuántos borró."""
+def findings_for_control(control_id):
+    return _query_all(findings_table, KeyConditionExpression=Key("control_id").eq(control_id))
+
+
+def has_findings(control_id):
+    """Para el 409 al borrar un control (D95): alcanza con saber si hay al menos uno."""
+    response = findings_table.query(KeyConditionExpression=Key("control_id").eq(control_id), Limit=1)
+    return response["Count"] > 0
+
+
+def _delete_findings(control_id, keep_scan_id=None):
+    """Borra los findings del control, salvo los que escribió keep_scan_id. Retorna cuántos borró."""
     items = _query_all(
         findings_table,
         KeyConditionExpression=Key("control_id").eq(control_id),
         ProjectionExpression="resource_id, scan_id",
     )
-    stale = [item for item in items if item.get("scan_id") != scan_id]
+    to_delete = [item for item in items if item.get("scan_id") != keep_scan_id]
     with findings_table.batch_writer() as batch:
-        for item in stale:
+        for item in to_delete:
             batch.delete_item(Key={"control_id": control_id, "resource_id": item["resource_id"]})
-    return len(stale)
+    return len(to_delete)
+
+
+def delete_stale_findings(control_id, scan_id):
+    """Borra los findings del control que NO escribió este scan: recursos que ya no existen."""
+    return _delete_findings(control_id, keep_scan_id=scan_id)
+
+
+def delete_all_findings(control_id):
+    """Cuando un control pasa a manual (D95): sus findings ya no se actualizan."""
+    return _delete_findings(control_id)
 
 
 def save_scan(summary):
     scans_table.put_item(Item={"pk": SCAN_PK, **summary})
+
+
+def latest_scan():
+    """El último scan, o None si nunca se escaneó. La SK started_at ordena por fecha."""
+    response = scans_table.query(
+        KeyConditionExpression=Key("pk").eq(SCAN_PK),
+        ScanIndexForward=False,
+        Limit=1,
+    )
+    items = response.get("Items", [])
+    if not items:
+        return None
+    return {k: v for k, v in items[0].items() if k != "pk"}

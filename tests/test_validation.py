@@ -120,6 +120,30 @@ class ValidateFieldsPartialTests(unittest.TestCase):
         self.assertIn("debe ser uno de", err)
 
 
+class CheckIdTests(unittest.TestCase):
+    """check_id: solo checks que existen, o "" para un control manual (D92)."""
+
+    def test_check_existente_es_valido(self):
+        cleaned, err = validate_fields(valid_body(check_id="s3-account-public-access-block"))
+        self.assertIsNone(err)
+        self.assertEqual(cleaned["check_id"], "s3-account-public-access-block")
+
+    def test_vacio_es_valido_y_significa_manual(self):
+        cleaned, err = validate_fields({"check_id": ""}, partial=True)
+        self.assertIsNone(err)
+        self.assertEqual(cleaned, {"check_id": ""})
+
+    def test_check_inexistente_se_rechaza_y_lista_los_validos(self):
+        _, err = validate_fields(valid_body(check_id="s3-no-existe"))
+        self.assertIn("check_id", err)
+        self.assertIn("s3-account-public-access-block", err)
+        self.assertIn('""', err)
+
+    def test_ausente_queda_en_none(self):
+        cleaned, _ = validate_fields(valid_body())
+        self.assertIsNone(cleaned["check_id"])
+
+
 class ValidateControlIdTests(unittest.TestCase):
 
     CANONICAL = "65f38383-241b-4e7b-aa38-72fc7d9edb6a"
