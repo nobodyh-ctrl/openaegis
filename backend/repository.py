@@ -65,6 +65,22 @@ def delete_control(control_id):
         return None
 
 
+def set_control_status(control_id, status, updated_at):
+    """Lo usa el scanner (D94). Escribe SOLO status y updated_at y no devuelve el item (ReturnValues NONE):
+    la policy del scanner solo permite eso. Retorna False si el control ya no existe."""
+    try:
+        table.update_item(
+            Key={"id": control_id},
+            UpdateExpression="SET #status = :status, updated_at = :updated_at",
+            ExpressionAttributeNames={"#status": "status"},  # status es palabra reservada de DynamoDB
+            ExpressionAttributeValues={":status": status, ":updated_at": updated_at},
+            ConditionExpression="attribute_exists(id)",
+        )
+        return True
+    except table.meta.client.exceptions.ConditionalCheckFailedException:
+        return False
+
+
 def update_control(control_id, fields):
     """Actualiza los campos indicados. Retorna el item actualizado o None si no existe."""
     names = {f"#{k}": k for k in fields}

@@ -12,7 +12,7 @@ import boto3
 
 import findings_repository
 import repository
-from checks import ScanContext, run_checks
+from checks import ScanContext, control_status, run_checks
 
 logger = logging.getLogger()
 
@@ -47,6 +47,11 @@ def lambda_handler(event, context):
     findings_repository.save_findings(findings)
     stale_deleted = sum(findings_repository.delete_stale_findings(c["id"], scan_id) for c in controls)
 
+    # El status de cada control automático lo define el scan (D94), no una persona
+    for control in controls:
+        statuses = [f["status"] for f in findings if f["control_id"] == control["id"]]
+        repository.set_control_status(control["id"], control_status(statuses), started_at)
+
     for finding in findings:
         if finding["status"] == "ERROR":
             logger.warning(
@@ -61,6 +66,9 @@ def lambda_handler(event, context):
         **{f"{s.lower()}_count": sum(1 for f in findings if f["status"] == s) for s in STATUSES},
         "stale_deleted": stale_deleted,
     }
+    # Quién lo pidió (el sub de Cognito que manda la API). Un Test desde la consola no lo trae.
+    if event.get("requested_by"):
+        summary["requested_by"] = event["requested_by"]
     findings_repository.save_scan(summary)
     logger.info("scan terminado", extra=summary)
     return summary
