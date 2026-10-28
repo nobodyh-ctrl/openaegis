@@ -1,0 +1,4 @@
+# Librería de CDK para Python. Versiones exactas y con >= 14 días de publicadas (misma política que D68).
+# Tiene que ser compatible con el CLI de infra/package.json: se actualizan juntos.
+aws-cdk-lib==2.273.0
+constructs==10.8.1
