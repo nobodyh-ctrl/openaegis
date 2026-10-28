@@ -14,7 +14,7 @@ import TextFilter from "@cloudscape-design/components/text-filter";
 import { useNavigate, useSearchParams } from "react-router";
 import { ControlDetails } from "@/components/controls/ControlDetails";
 import { DeleteControlModal } from "@/components/controls/DeleteControlModal";
-import { SEVERITY_ORDER, SeverityBadge, StatusBadge, severityLabel, statusLabel } from "@/components/controls/badges";
+import { EvaluationBadge, SEVERITY_ORDER, SeverityBadge, StatusBadge, severityLabel, statusLabel } from "@/components/controls/badges";
 import { useSplitPanel } from "@/components/layout/split-panel";
 import { SEVERITIES, STATUSES, type Control, type Status } from "@/lib/api";
 import { useFollow } from "@/lib/navigation";
@@ -24,6 +24,7 @@ import { useControls, useUpdateControl } from "@/lib/use-controls";
 const ALL: SelectProps.Option = { value: "ALL", label: "Toda severidad" };
 const ALL_STATUS: SelectProps.Option = { value: "ALL", label: "Todo estado" };
 const severityOptions = [ALL, ...SEVERITIES.map((s) => ({ value: s, label: severityLabel(s) }))];
+const AUTOMATIC_STATUS_REASON = "Lo define el scanner. Para cambiarlo a mano, editá el control y pasalo a Manual.";
 const statusOptions = [ALL_STATUS, ...STATUSES.map((s) => ({ value: s, label: statusLabel(s) }))];
 const relative = new Intl.RelativeTimeFormat("es", { numeric: "auto" });
 
@@ -68,6 +69,7 @@ export function ControlsPage() {
       width: 120,
     },
     { id: "status", header: "Estado", cell: (c) => <StatusBadge status={c.status} />, sortingField: "status", width: 140 },
+    { id: "evaluation", header: "Evaluación", cell: (c) => <EvaluationBadge checkId={c.check_id} />, width: 130 },
     { id: "updated", header: "Actualizado", cell: (c) => timeAgo(c.updated_at), sortingField: "updated_at", width: 140 },
   ], [follow]);
 
@@ -106,6 +108,7 @@ export function ControlsPage() {
   const selectedId = collectionProps.selectedItems?.[0]?.id;
   // El seleccionado se toma de los datos frescos (cambia en el panel al editar el estado)
   const selected = data?.items.find((c) => c.id === selectedId);
+  const automaticSelected = Boolean(selected?.check_id);
 
   const changeStatus = (control: Control, newStatus: Status) => {
     if (control.status === newStatus) return;
@@ -159,7 +162,19 @@ export function ControlsPage() {
                   disabled={!selected}
                   items={[
                     { id: "edit", text: "Editar", iconName: "edit" },
-                    { id: "status", text: "Cambiar estado", items: STATUSES.map((s) => ({ id: `status:${s}`, text: statusLabel(s), disabled: selected?.status === s })) },
+                    {
+                      id: "status",
+                      text: "Cambiar estado",
+                      // En un control automático el estado lo pone el scanner (la API respondería 409).
+                      // El disabled del GRUPO no se hereda: hay que deshabilitar cada opción.
+                      disabled: automaticSelected,
+                      items: STATUSES.map((s) => ({
+                        id: `status:${s}`,
+                        text: statusLabel(s),
+                        disabled: automaticSelected || selected?.status === s,
+                        disabledReason: automaticSelected ? AUTOMATIC_STATUS_REASON : undefined,
+                      })),
+                    },
                     { id: "delete", text: "Eliminar", iconName: "remove" },
                   ]}
                   onItemClick={({ detail }) => {

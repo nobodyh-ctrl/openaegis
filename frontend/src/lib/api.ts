@@ -1,5 +1,5 @@
 /**
- * Cliente de la API de controles. Es el ÚNICO archivo del frontend que hace fetch():
+ * Cliente de la API (controles, scans y findings). Es el ÚNICO archivo del frontend que hace fetch():
  * el resto de la app llama a estas funciones y recibe datos tipados o un ApiError.
  * Espejo del contrato del backend (backend/validation.py y backend/controls.py).
  */
@@ -9,8 +9,21 @@ import { getAccessToken, reloginAfter401 } from "./auth";
 export const SEVERITIES =["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
 export const STATUSES = ["PASS", "REVIEW", "FAIL"] as const;
 
+/** Checks que existen en el backend (CHECKS de backend/checks.py). "" = control manual (D92). */
+export const CHECK_IDS = [
+  "s3-account-public-access-block",
+  "s3-bucket-public-access-block",
+  "s3-bucket-tls-only",
+  "cloudtrail-multi-region-logging",
+  "iam-root-mfa",
+] as const;
+/** ERROR = el check no pudo evaluar el recurso (por ejemplo, AccessDenied). */
+export const FINDING_STATUSES = ["PASS", "FAIL", "ERROR"] as const;
+
 export type Severity = (typeof SEVERITIES)[number];
 export type Status = (typeof STATUSES)[number];
+export type CheckId = (typeof CHECK_IDS)[number];
+export type FindingStatus = (typeof FINDING_STATUSES)[number];
 
 /** Un control tal como lo devuelve la API. */
 export interface Control {
@@ -23,8 +36,33 @@ export interface Control {
   status: Status;
   description?: string;
   remediation?: string;
+  /** Con un check, el status lo pone el scanner y no se edita a mano (D94). Vacío o ausente = manual. */
+  check_id?: CheckId | "";
   created_at: string;
   updated_at: string;
+}
+
+/** Resultado de un check sobre UN recurso. Un control automático tiene uno por recurso evaluado. */
+export interface Finding {
+  control_id: string;
+  check_id: string;
+  /** ARN del recurso, o "account" / "root" en los checks de cuenta, o "check" si el check no corrió. */
+  resource_id: string;
+  status: FindingStatus;
+  evidence: string;
+  evaluated_at: string;
+  scan_id: string;
+}
+
+/** Resumen de un scan. Los contadores cuentan FINDINGS, no controles. */
+export interface Scan {
+  started_at: string;
+  finished_at: string;
+  controls_evaluated: number;
+  pass_count: number;
+  fail_count: number;
+  error_count: number;
+  stale_deleted: number;
 }
 
 /** Body de POST /controls: lo que el usuario puede mandar (id y fechas los pone el servidor). */
@@ -37,6 +75,7 @@ export interface ControlInput {
   status?: Status;
   description?: string;
   remediation?: string;
+  check_id?: CheckId | "";
 }
 
 /** Body de PATCH /controls/{id}: cualquier subconjunto de los campos editables. */
@@ -112,4 +151,13 @@ export const api = {
     request<{ item: Control }>(controlPath(id), { method: "PATCH", body: patch }),
 
   deleteControl: (id: string) => request<{ item: Control }>(controlPath(id), { method: "DELETE" }),
+
+  /** 202: el scan corre en segundo plano (D93). El resultado se consulta con latestScan. */
+  startScan: () => request<{ message: string }>("/scans", { method: "POST" }),
+
+  /** item = null si nunca se corrió un scan. */
+  latestScan: () => request<{ item: Scan | null }>("/scans/latest"),
+
+  listFindings: (controlId: string) =>
+    request<{ items: Finding[]; count: number }>(`/findings?control_id=${encodeURIComponent(controlId)}`),
 };
