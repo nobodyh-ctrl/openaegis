@@ -1,9 +1,9 @@
 # OpenAegis
 
-> Aplicación serverless en AWS para gestionar controles de seguridad cloud y, más adelante, evaluarlos con checks automáticos de solo lectura.
+> Aplicación serverless en AWS para gestionar controles de seguridad cloud y evaluarlos con checks automáticos de solo lectura.
 > Proyecto **educativo y de portfolio**, construido etapa por etapa para entender cada servicio de AWS que usa. *(Antes: "Cloud Security Checklist".)*
 
-**Estado:** V1 en desarrollo. Etapas 0–10 completas (CRUD de controles, permisos auditados, frontend SPA con Cloudscape desplegado en S3 + CloudFront, login con Cognito + MFA con la API protegida por JWT, y observabilidad con CloudWatch: logs de auditoría, alarmas por email y dashboard) + CI mínimo. Sigue la Etapa 11 (checks de seguridad read-only). Ver [Roadmap](#roadmap).
+**Estado:** V1 en desarrollo. Etapas 0–11 completas (CRUD de controles, permisos auditados, frontend SPA con Cloudscape desplegado en S3 + CloudFront, login con Cognito + MFA con la API protegida por JWT, observabilidad con CloudWatch y **5 checks de seguridad read-only** con findings y score) + CI mínimo. Sigue la Etapa 12 (infraestructura como código con AWS CDK). Ver [Roadmap](#roadmap).
 
 ---
 
@@ -11,7 +11,17 @@
 
 Un **control** es una regla de seguridad que debería cumplirse en una cuenta de AWS, por ejemplo *"S3 Block Public Access activado"*, *"CloudTrail habilitado"* o *"MFA en el root"*. OpenAegis permite registrar esos controles con su severidad y su estado (`PASS` / `REVIEW` / `FAIL`) mediante una API REST.
 
-En las próximas etapas va a ejecutar **checks automáticos de solo lectura** con boto3 sobre la propia cuenta, para generar **findings** (el resultado de evaluar un control sobre un recurso concreto), un score y un dashboard.
+Además, ejecuta **checks automáticos de solo lectura** con boto3 sobre la propia cuenta. Cada check genera **findings** (el resultado de evaluar un control sobre un recurso concreto, con evidencia), actualiza el estado de su control y alimenta un **score** ponderado por severidad.
+
+| Check | Qué verifica |
+|---|---|
+| `s3-account-public-access-block` | Las 4 opciones de S3 Block Public Access activas a nivel cuenta |
+| `s3-bucket-public-access-block` | Cada bucket protegido por su Block Public Access o por el de la cuenta |
+| `s3-bucket-tls-only` | La bucket policy de cada bucket rechaza las conexiones sin HTTPS |
+| `cloudtrail-multi-region-logging` | Hay un trail multi-región que está registrando eventos |
+| `iam-root-mfa` | El usuario root tiene MFA |
+
+En su primer scan contra la cuenta del proyecto encontró dos problemas reales (un bucket que aceptaba HTTP y ningún trail de CloudTrail), que se corrigieron a mano; después detectó solo los buckets nuevos que había creado la consola de CloudTrail sin esa protección.
 
 **Lo que no es:** no es un scanner de seguridad completo ni compite con Prowler, ScoutSuite, Wiz o Prisma Cloud. **No garantiza la seguridad de una cuenta.** Su objetivo es aprender y poder explicar cada decisión de arquitectura, seguridad y costos.
 
@@ -32,7 +42,11 @@ En las próximas etapas va a ejecutar **checks automáticos de solo lectura** co
 | `PATCH /controls/{id}` — editar campos o cambiar el estado (404 sin crear items, 409 por `code` de otro control, allowlist) | ✅ |
 | `DELETE /controls/{id}` — eliminar un control (404 si no existe, devuelve el item borrado) | ✅ |
 | CI con GitHub Actions: tests unitarios, chequeo de identificadores reales y verificación del frontend (`npm ci`, typecheck, build, `npm audit`), sin credenciales de AWS | ✅ |
-| Checks, findings, score, IaC, tests de `controls.py`/API | 🔜 Ver roadmap |
+| 5 checks read-only en una Lambda aparte, con rol propio de solo lectura | ✅ |
+| `POST /scans` (asincrónico, `202`), `GET /scans/latest`, `GET /findings?control_id=` | ✅ |
+| Controles automáticos (con `check_id`) y manuales; el estado de un automático solo lo cambia el scanner (`409`) | ✅ |
+| En la SPA: botón Escanear, findings por control y score ponderado por severidad | ✅ |
+| IaC, tests de `controls.py`/API | 🔜 Ver roadmap |
 
 ## Arquitectura
 
@@ -41,10 +55,12 @@ Navegador ──HTTPS──► CloudFront ──OAC──► S3 (privado)       
     │
     ├──login (PKCE + MFA)──► Cognito User Pool ──► tokens (ID, access, refresh)
     │
-    └──Bearer <access token>──► API Gateway (HTTP API) ──► Lambda (Python) ──► DynamoDB
-                                throttling + CORS            │
-                                JWT authorizer (401/403)     └──► CloudWatch Logs (JSON)
-                                     │                                     │
+    └──Bearer <access token>──► API Gateway (HTTP API) ──► Lambda API (Python) ──► DynamoDB (controles, findings, scans)
+                                throttling + CORS            │      │ invoke asincrónico (202)        ▲
+                                JWT authorizer (401/403)     │      └──► Lambda scanner ──────────────┘
+                                     │                       │           rol propio: Get/List/Describe
+                                     │                       │           de S3, CloudTrail e IAM
+                                     │                       └──► CloudWatch Logs (JSON)
                                      └───────── access logs ──────────────►┤
                                                                            └──► alarmas → SNS → email · dashboard
 ```
@@ -70,6 +86,9 @@ Python puro, sin frameworks ni dependencias externas, separado por responsabilid
 | `validation.py` | Qué es un control válido (sin AWS ni HTTP) |
 | `repository.py` | Único módulo que habla con DynamoDB |
 | `responses.py` | Formato de respuesta de API Gateway |
+| `scans.py` · `scanner_client.py` | Rutas de scans y findings; invocación del scanner |
+| `checks.py` | Los checks (sin boto3: reciben los clientes, así se testean sin AWS) |
+| `scanner.py` · `findings_repository.py` | Handler del scanner; findings y resúmenes de scans |
 
 ## Por qué esta arquitectura
 
@@ -101,13 +120,13 @@ Serverless, pago por uso y acceso **por IAM**: no hay usuario y contraseña de b
 
 ## Deployment model
 
-**Self-hosted, single-account.** Cada persona despliega su propia copia en **su** cuenta de AWS, y la app evalúa **esa misma cuenta**. Los controles y findings **no salen de esa cuenta**, y cada uno paga su propio consumo. Los permisos de los checks van a ser de solo lectura y se podrán revisar antes de desplegar.
+**Self-hosted, single-account.** Cada persona despliega su propia copia en **su** cuenta de AWS, y la app evalúa **esa misma cuenta**. Los controles y findings **no salen de esa cuenta**, y cada uno paga su propio consumo. Los permisos de los checks son de solo lectura, con una policy propia mínima que se puede revisar antes de desplegar (no `SecurityAudit`).
 
 ⚠️ **Hoy todavía no es reproducible:** la infraestructura se creó a mano en la consola, como parte del aprendizaje. El despliegue con un comando (`cdk deploy`) llega en la Etapa 12 (AWS CDK en Python).
 
 ## Seguridad
 
-- **Least privilege:** el rol de la Lambda solo puede hacer `Scan`, `GetItem`, `PutItem`, `UpdateItem` y `DeleteItem` sobre **una** tabla. API Gateway solo puede invocar la Lambda desde esta API y desde paths concretos. CloudFront es el único que puede leer el bucket.
+- **Least privilege:** el rol de la Lambda de la API solo puede hacer `Scan`, `GetItem`, `PutItem`, `UpdateItem` y `DeleteItem` sobre la tabla de controles, consultar las de findings y scans, e invocar al scanner. API Gateway solo puede invocar la Lambda desde esta API y desde paths concretos. CloudFront es el único que puede leer el bucket.
 - **Sin credenciales de larga duración:** sin access keys; la CLI se usa desde AWS CloudShell. Root con MFA y sin uso diario.
 - **Validación estricta** de la entrada: tipos, largos, valores permitidos y allowlist de campos (protección contra *mass assignment*). Escrituras condicionales para no pisar ni crear items por accidente.
 - **Autenticación con Cognito:** registro cerrado (solo el admin crea usuarios), **MFA obligatorio** (TOTP), Authorization Code + PKCE (sin secretos en la SPA), tokens en `sessionStorage`, refresh token de 12 h revocado en el logout.
@@ -116,6 +135,8 @@ Serverless, pago por uso y acceso **por IAM**: no hay usuario y contraseña de b
 - **Throttling** en la API para limitar el abuso y el costo (*denial of wallet*).
 - **Logs** en JSON con ruta, IDs de request y el `sub` de quien hace cada cambio (auditoría), **sin** el event completo ni el body. **Access logs** de API Gateway con IP, `userAgent` y el motivo de cada rechazo del authorizer, con retención de 1 semana.
 - **Alarmas** por email ante errores de la Lambda, `5xx` de la API y picos de `4xx` (posible ataque), probadas con una falla real. Desventaja: HTTP API no registra los pedidos a rutas inexistentes; un escaneo solo se ve como un pico de `4xx`.
+- **Checks con permisos mínimos:** el scanner corre en una Lambda aparte con su propio rol. Solo **lee** configuración (nunca objetos ni eventos) y su única escritura sobre los controles está limitada por una **condición de IAM** a los atributos `status` y `updated_at`. El rol de la API no puede leer la configuración de la cuenta. Desventaja: cada check nuevo exige actualizar la policy a mano (hasta CDK).
+- **Evidencia sin datos sensibles:** los findings guardan el código del error, nunca el mensaje (trae ARNs con la cuenta), y nunca el ID de la cuenta. Nadie puede tapar a mano un `FAIL` del scanner: la API responde `409`.
 
 ## Costos
 
@@ -140,11 +161,11 @@ Procedimiento completo: [AGENTS.md §7](AGENTS.md#7-cómo-desplegar-y-probar-sol
 
 ## Destrucción
 
-Cada doc de etapa tiene su sección **"Cómo revertir esta etapa"**. Orden sugerido para eliminar todo, de lo más dependiente a lo menos: dashboard, alarmas y topic de SNS → access logs y su log group → JWT authorizer → rutas y API → statements de la resource-based policy de la Lambda → Lambda y su log group → rol de ejecución → tabla DynamoDB → distribución de CloudFront (deshabilitar y luego borrar) → bucket S3 (vaciar y luego borrar) → User Pool de Cognito (desactivar la deletion protection y borrar) → verificar por el tag `Project`. Con CDK (Etapa 12) esto pasa a ser `cdk destroy` + verificación.
+Cada doc de etapa tiene su sección **"Cómo revertir esta etapa"**. Orden sugerido para eliminar todo, de lo más dependiente a lo menos: trail de CloudTrail y su bucket → Lambda scanner, su rol y las tablas de findings y scans → dashboard, alarmas y topic de SNS → access logs y su log group → JWT authorizer → rutas y API → statements de la resource-based policy de la Lambda → Lambda y su log group → rol de ejecución → tabla DynamoDB → distribución de CloudFront (deshabilitar y luego borrar) → bucket S3 (vaciar y luego borrar) → User Pool de Cognito (desactivar la deletion protection y borrar) → verificar por el tag `Project`. Con CDK (Etapa 12) esto pasa a ser `cdk destroy` + verificación.
 
 ## Roadmap
 
-**V1 (en curso):** cuenta segura → S3 → CloudFront → Lambda → API Gateway → DynamoDB → IAM → frontend → Cognito → CloudWatch → **checks read-only (siguiente)** + findings + score → CDK → CI → tests → documentación → demo.
+**V1 (en curso):** cuenta segura → S3 → CloudFront → Lambda → API Gateway → DynamoDB → IAM → frontend → Cognito → CloudWatch → checks read-only + findings + score → **CDK (siguiente)** → CI → tests → documentación → demo.
 
 **Después de la V1:** una revisión de arquitectura V1 → V2 y una evolución progresiva hacia Cloud/DevSecOps (containers, Terraform, CI/CD con OIDC, observabilidad, remediación controlada). Cada tecnología se agrega solo si resuelve un problema concreto.
 
@@ -154,10 +175,10 @@ Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 | Doc | Contenido |
 |---|---|
-| [docs/00](docs/00-account-setup.md) … [docs/09](docs/09-cognito.md) · [docs/13a](docs/13a-ci-minimo.md) | Una etapa por documento: conceptos, decisiones, configuración, verificación, costos, cómo revertir |
+| [docs/00](docs/00-account-setup.md) … [docs/11](docs/11-checks.md) · [docs/13a](docs/13a-ci-minimo.md) | Una etapa por documento: conceptos, decisiones, configuración, verificación, costos, cómo revertir |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Arquitectura implementada |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Todas las decisiones técnicas (índice) |
-| [docs/architecture-decisions/](docs/architecture-decisions/) | ADRs de las decisiones grandes: serverless, S3 + CloudFront, HTTP API, DynamoDB, modelo de despliegue, frontend SPA, autenticación con Cognito |
+| [docs/architecture-decisions/](docs/architecture-decisions/) | ADRs de las decisiones grandes: serverless, S3 + CloudFront, HTTP API, DynamoDB, modelo de despliegue, frontend SPA, autenticación con Cognito, observabilidad, checks read-only |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Etapas y estado |
 | [docs/LEARNING_LOG.md](docs/LEARNING_LOG.md) | Conceptos aprendidos y errores encontrados |
 | [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md) | Origen y objetivos del proyecto |

@@ -1,6 +1,6 @@
 # AGENTS.md — Instrucciones para agentes que trabajen en OpenAegis
 
-> Última actualización: 2026-10-25. Este archivo es la **puerta de entrada** para cualquier sesión nueva (Claude Code, Amazon Q u otro agente). Leelo completo antes de proponer cambios.
+> Última actualización: 2026-10-28. Este archivo es la **puerta de entrada** para cualquier sesión nueva (Claude Code, Amazon Q u otro agente). Leelo completo antes de proponer cambios.
 
 Convenciones de estado usadas en toda la documentación:
 
@@ -46,16 +46,21 @@ openaegis/
 ├── architecture/
 │   ├── architecture.drawio.png       ← diagrama editable (extensión draw.io de VS Code); actualizado en la Etapa 10 (Cognito, JWT authorizer, CloudWatch, alarmas → SNS)
 │   └── permissions-flow.drawio.png   ← "quién le pide permiso a quién" (flechas ① a ⑦; ① autorizada por el JWT authorizer; ⑥ y ⑦ de observabilidad)
-├── backend/                  ← código de la Lambda (Python, sin dependencias externas)
-│   ├── handler.py            ← punto de entrada: ROUTES + lambda_handler
+├── backend/                  ← código de las DOS Lambdas, mismo zip (Python, sin dependencias externas)
+│   ├── handler.py            ← punto de entrada de la API: ROUTES + lambda_handler
 │   ├── controls.py           ← lógica de cada ruta de /controls
-│   ├── validation.py         ← reglas de un control válido (sin AWS ni HTTP)
-│   ├── repository.py         ← ÚNICO módulo que usa boto3 / DynamoDB
+│   ├── scans.py              ← rutas de scans y findings (Etapa 11)
+│   ├── validation.py         ← reglas de un control válido (sin AWS ni HTTP; importa CHECKS de checks.py)
+│   ├── repository.py         ← tabla de controles (boto3)
+│   ├── findings_repository.py ← tablas de findings y scans (boto3)
+│   ├── scanner_client.py     ← la API invoca al scanner (boto3, asincrónico)
 │   ├── responses.py          ← formato de entrada/salida de API Gateway (payload 2.0)
+│   ├── checks.py             ← los checks read-only (SIN boto3: reciben los clientes por parámetro)
+│   ├── scanner.py            ← punto de entrada del scanner: scanner.lambda_handler
 │   └── openapi.yaml          ← CONTRATO de la API (OpenAPI 3.1, D69): actualizarlo si cambia el backend
 ├── docs/
-│   ├── 00..10-*.md, 13a-ci-minimo.md  ← un doc por etapa
-│   ├── architecture-decisions/  ← ADR-001 a ADR-008 (decisiones grandes)
+│   ├── 00..11-*.md, 13a-ci-minimo.md  ← un doc por etapa
+│   ├── architecture-decisions/  ← ADR-001 a ADR-009 (decisiones grandes)
 │   ├── PROJECT_CONTEXT.md · ARCHITECTURE.md · ROADMAP.md · DECISIONS.md · LEARNING_LOG.md
 ├── frontend/                 ← SPA React + Vite + TS + Cloudscape Design System (D75, teal como acento D76; Etapa 8). Dependencias: D68
 │   ├── .npmrc                ← save-exact, ignore-scripts
@@ -64,7 +69,7 @@ openaegis/
 │   ├── swagger.html          ← Swagger UI SOLO en desarrollo (http://localhost:5173/swagger.html)
 │   ├── public/               ← se copia tal cual a dist/: favicon.svg, apple-touch-icon.png
 │   └── src/                  ← main.tsx (providers), router.tsx, pages/, components/ (layout, controls), lib/ (api, auth, use-controls, control-rules, theme, brand-theme, notifications, navigation, query-client, config). `lib/auth.ts` es el único que usa `oidc-client-ts`
-├── tests/                    ← tests unitarios con unittest (sin AWS): validation, responses, check_identifiers
+├── tests/                    ← tests unitarios con unittest (sin AWS): validation, responses, checks (clientes falsos), check_identifiers
 ├── scripts/
 │   └── check_identifiers.py  ← falla si un archivo versionado tiene un ID real (cuenta, API, CloudFront, access key)
 ├── odd/tasks/                ← notas de tareas en formato ODD (Specs / Tasks / Log); su uso como metodología del proyecto está pendiente de decisión
@@ -92,7 +97,8 @@ Localmente existe `lambda.zip` (artefacto de deploy, ignorado por `.gitignore`).
 | Frontend SPA (React + Vite + TS + Cloudscape, D75/D76) | ✅ código [CONFIRMADO-REPO] — implementado y verificado en local; **desplegado** en CloudFront el 2026-10-21 (paso 8.8, D79) y CRUD verificado en producción (8.9) [CONVERSACIÓN]. **Etapa 8 completa** |
 | Cognito (Etapa 9): User Pool con MFA, login en la SPA, JWT authorizer en las 5 rutas | ✅ [CONVERSACIÓN, 2026-10-24]: verificado en producción (11 pruebas, incluido el `401` → login y el `403` en la SPA); checkpoint hecho. [docs/09-cognito.md](docs/09-cognito.md) |
 | CloudWatch (Etapa 10): logs JSON con `user_sub`, access logs de API Gateway, 3 alarmas → SNS → email, dashboard `OpenAegis` | ✅ código [CONFIRMADO-REPO] (PR #17) + configuración [CONVERSACIÓN, 2026-10-25], verificada con un simulacro de falla. [docs/10-cloudwatch.md](docs/10-cloudwatch.md) |
-| Checks + findings, CDK, `cdk synth` en CI, tests de `controls.py` | [PENDIENTE] (Etapas 11–16) |
+| Checks (Etapa 11): Lambda `openaegis-scanner` con lectura sobre los recursos evaluados y escritura limitada en DynamoDB, 5 checks, tablas `openaegis-findings` y `openaegis-scans`, rutas `POST /scans`, `GET /scans/latest`, `GET /findings`, Escanear + findings + score en la SPA | ✅ código [CONFIRMADO-REPO] (PRs #19–#22) + configuración [CONVERSACIÓN, 2026-10-28]; último scan 7/7 `PASS`. [docs/11-checks.md](docs/11-checks.md) |
+| CDK, `cdk synth` en CI, tests de `controls.py` | [PENDIENTE] (Etapas 12–16) |
 
 Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -108,7 +114,7 @@ Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 | Ahora (V1, implementado) | V1, pendiente | Futuro (Bloque B, a evaluar) |
 |---|---|---|
-| Python 3.14 (arm64) · AWS Lambda · API Gateway HTTP API (+ JWT authorizer) · DynamoDB · S3 · CloudFront (OAC) · IAM · CloudWatch (logs JSON, access logs, alarmas, dashboard) · SNS (email de alarmas) · boto3 (incluido en el runtime) · Cognito User Pool · SPA React + Vite + TypeScript + Cloudscape + `oidc-client-ts` | Checks con boto3 · AWS CDK (Python) · GitHub Actions (alcance por decidir) · moto [PROPUESTA] | Docker · Terraform · ECR · ECS/Fargate · FastAPI · OIDC · OpenTelemetry/X-Ray · SQS · Ansible · Trivy/Bandit/Semgrep/Checkov/ansible-lint · IA para explicar findings · k6 |
+| Python 3.14 (arm64) · AWS Lambda (API + scanner) · API Gateway HTTP API (+ JWT authorizer) · DynamoDB · S3 · CloudFront (OAC) · IAM · CloudWatch (logs JSON, access logs, alarmas, dashboard) · SNS (email de alarmas) · CloudTrail (trail multi-región) · boto3 (incluido en el runtime; checks read-only) · Cognito User Pool · SPA React + Vite + TypeScript + Cloudscape + `oidc-client-ts` | AWS CDK (Python) · GitHub Actions (alcance por decidir) · moto [PROPUESTA] | Docker · Terraform · ECR · ECS/Fargate · FastAPI · OIDC · OpenTelemetry/X-Ray · SQS · Ansible · Trivy/Bandit/Semgrep/Checkov/ansible-lint · IA para explicar findings · k6 |
 
 ## 7. Cómo desplegar y probar (solo lo verificado)
 
@@ -123,7 +129,17 @@ Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
 Compress-Archive -Path backend\*.py -DestinationPath lambda.zip -Force
 ```
 
-Después: consola → Lambda `cloud-sec-checklist-api` → **Code → Upload from → .zip file** → Save. Handler configurado: **`handler.lambda_handler`** (se configura una sola vez). Variable de entorno: `TABLE_NAME=cloud-sec-checklist-controls`.
+Después: consola → Lambda `cloud-sec-checklist-api` → **Code → Upload from → .zip file** → Save. Handler configurado: **`handler.lambda_handler`** (se configura una sola vez). Variables de entorno: `TABLE_NAME=cloud-sec-checklist-controls`, `FINDINGS_TABLE=openaegis-findings`, `SCANS_TABLE=openaegis-scans`, `SCANNER_FUNCTION=openaegis-scanner` (se leen al importar: si falta una, falla **toda** la API).
+
+**Desde la Etapa 11, el MISMO zip va también a `openaegis-scanner`** (handler `scanner.lambda_handler`; variables `TABLE_NAME`, `FINDINGS_TABLE`, `SCANS_TABLE`). Si se actualiza una sola, quedan desfasadas (la API valida `check_id` con `CHECKS`). Verificar el título de cada pantalla y, al final, que las dos tengan el mismo `CodeSha256` **antes** de cualquier prueba destructiva:
+
+```bash
+for f in cloud-sec-checklist-api openaegis-scanner; do
+  aws lambda get-function-configuration --function-name $f --query "{f:FunctionName,sha:CodeSha256,estado:LastUpdateStatus}"
+done
+```
+
+`update-function-configuration --environment` **reemplaza todas** las variables: mandar siempre la lista completa.
 
 **Pruebas** (desde CloudShell). Desde la Etapa 9 la API exige un **access token** (sin token: `401`). Se copia de la SPA logueada (F12 → Console: `copy(JSON.parse(sessionStorage.getItem(Object.keys(sessionStorage).find(k => k.startsWith("oidc.user")))).access_token)`) y se carga con `read -rs`, para que no quede en pantalla ni en el historial. **Nunca pegar tokens en el chat.** Dura 1 hora.
 
@@ -146,6 +162,7 @@ aws logs tail /aws/lambda/cloud-sec-checklist-api --since 10m --follow
 aws logs tail /aws/lambda/cloud-sec-checklist-api --since 1h --filter-pattern ERROR
 aws logs tail /aws/lambda/cloud-sec-checklist-api --since 1h --filter-pattern '{ $.message = "control eliminado" }'   # por campo (logs JSON, D84)
 aws logs tail /aws/vendedlogs/apigateway/cloud-sec-checklist-http-api --since 10m        # access logs (incluye los 401/403)
+aws logs tail /aws/lambda/openaegis-scanner --since 10m                                  # scanner: "scan terminado" y "check con error"
 ```
 
 **Verificar el estado real de AWS (solo lectura, para que lo corra el usuario):**
@@ -173,7 +190,7 @@ python -m unittest discover -s tests -v
 python scripts/check_identifiers.py
 ```
 
-Cubren `validation.py`, `responses.py` y el propio chequeo. `controls.py` todavía no se testea: importar `repository.py` requiere `TABLE_NAME` y boto3 (Etapa 14).
+Cubren `validation.py`, `responses.py`, `checks.py` (con clientes falsos) y el propio chequeo (83 tests al 2026-10-28). `controls.py` todavía no se testea: importar `repository.py` requiere `TABLE_NAME` y boto3 (Etapa 14).
 
 ## 8. Reglas de seguridad y de trabajo (obligatorias)
 
@@ -185,7 +202,7 @@ Cubren `validation.py`, `responses.py` y el propio chequeo. `controls.py` todav�
 6. **Secretos e identificadores:** nunca escribir en el repo el ID de cuenta, el ID de la API, el dominio de CloudFront, el sufijo del bucket, el nombre del IAM user, IDs de distribución ni emails. Usar `<cuenta>`, `<api-id>`, `<distribucion>`, `<sufijo>`, `<admin-user>`, `<distribution-id>` y, desde la Etapa 9, `<user-pool-id>`, `<client-id>`, `<dominio-cognito>` y, desde la Etapa 10, `<email>` (suscripción de SNS). En las salidas de CloudWatch, además, el ID de la cuenta aparece en los ARN (emails de alarmas, `errorMessage`), el ID de la API en el nombre de los log streams del access log, y hay IPs y `sub`. **Nunca** pedir ni aceptar tokens de Cognito o un `code` en el chat: para probar, `read -rs`. **Recordarle al usuario** que tape esos datos cuando pega salidas.
 7. **`main` está protegida (D74): todo cambio va en una rama `tipo/descripcion` y entra por PR con el check `checks` en verde.** Antes de escribir, `git switch -c <rama>` desde `main` actualizada. **Commits, pushes y cambios destructivos solo a pedido explícito.** Mensajes en español, estilo `tipo(ámbito): descripción` (ver `git log`), con la atribución que indique el entorno.
 8. **Least privilege** en cada permiso nuevo: acciones concretas sobre ARNs concretos. Los checks de la V1 son **read-only**.
-9. **Código:** Python simple, sin frameworks ni dependencias salvo que resuelvan un problema real. `validation.py` no importa AWS ni HTTP; `repository.py` es el único que importa boto3. Atrapar **solo** las excepciones que se saben manejar (nada de `except Exception`). Logs con `logging` (JSON nativo de Lambda, D84), nunca `print`; nunca loguear el body, el event completo, tokens ni emails (el usuario se identifica por `user_sub`).
+9. **Código:** Python simple, sin frameworks ni dependencias salvo que resuelvan un problema real. `validation.py` y `checks.py` no importan AWS ni HTTP (los checks reciben los clientes por parámetro, para testearlos sin AWS); boto3 solo en `repository.py`, `findings_repository.py`, `scanner_client.py` y `scanner.py`. Los checks son **read-only**: la evidencia guarda el código del error, nunca el mensaje ni el ID de la cuenta. Atrapar **solo** las excepciones que se saben manejar (nada de `except Exception`). Logs con `logging` (JSON nativo de Lambda, D84), nunca `print`; nunca loguear el body, el event completo, tokens ni emails (el usuario se identifica por `user_sub`).
 
 ## 9. Cómo enseñar (el usuario lo exige)
 
@@ -206,8 +223,8 @@ El usuario pidió un **tutor técnico exigente, no un generador de código**. Re
 ## 10. Cómo documentar
 
 - **Un doc por etapa** en `docs/NN-tema.md`, con la estructura de los existentes: objetivo, conceptos, decisiones (`D#`), configuración, verificación, debugging, costos, relación con Cloud Security, cómo revertir, cosas que NO hacer. Con marcadores en lugar de identificadores reales.
-- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D89**), y al doc de su etapa.
-- **ADRs** (`docs/architecture-decisions/NNN-tema.md`, D55): solo para decisiones **grandes**; `DECISIONS.md` es el índice de todas. Formato: Contexto, Decisión, Por qué, Alternativas consideradas, Ventajas, Desventajas, Consideraciones de seguridad, Consideraciones de costo, Consecuencias, Evolución futura (más estado, fecha y decisiones relacionadas). Existen ADR-001 a ADR-008; el siguiente es **009**. Al crear uno, agregarlo a la tabla de `DECISIONS.md`.
+- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D102**), y al doc de su etapa.
+- **ADRs** (`docs/architecture-decisions/NNN-tema.md`, D55): solo para decisiones **grandes**; `DECISIONS.md` es el índice de todas. Formato: Contexto, Decisión, Por qué, Alternativas consideradas, Ventajas, Desventajas, Consideraciones de seguridad, Consideraciones de costo, Consecuencias, Evolución futura (más estado, fecha y decisiones relacionadas). Existen ADR-001 a ADR-009; el siguiente es **010**. Al crear uno, agregarlo a la tabla de `DECISIONS.md`.
 - **README:** contar la evolución, con ventajas **y desventajas**; **solo lo implementado**.
 - Actualizar ROADMAP y ARCHITECTURE cuando algo cambie de estado.
 

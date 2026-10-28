@@ -1,7 +1,7 @@
 # Decisiones técnicas
 
 > Índice de **todas** las decisiones del proyecto. D1–D31 están desarrolladas en el doc de cada etapa (acá solo el resumen y el enlace). D32–D54 (Etapa 6) están acá con sus alternativas completas y resumidas en [06-dynamodb.md](06-dynamodb.md).
-> **Próximo número libre: D89.** D84–D88 registrados (Etapa 10, CloudWatch, 2026-10-25).
+> **Próximo número libre: D102.** D89–D101 registrados (Etapa 11, checks y findings, 2026-10-28).
 > Cada decisión nueva se agrega acá y en el doc de su etapa.
 > Las decisiones grandes tienen además un **ADR** completo (D55):
 >
@@ -15,6 +15,7 @@
 > | [ADR-006](architecture-decisions/006-frontend-spa.md) | Frontend SPA (React + Vite + TS) en S3 + CloudFront | D64–D66, D75, D76 |
 > | [ADR-007](architecture-decisions/007-autenticacion-cognito.md) | Autenticación con Cognito (OIDC + PKCE) y JWT authorizer | D80–D83 |
 > | [ADR-008](architecture-decisions/008-observabilidad-cloudwatch.md) | Observabilidad con CloudWatch (logs JSON, access logs, alarmas por email) | D84–D88 |
+> | [ADR-009](architecture-decisions/009-checks-read-only.md) | Checks read-only en una Lambda aparte, con findings como estado actual | D89–D101 |
 
 ## D1–D31 (documentadas por etapa)
 
@@ -115,6 +116,19 @@ D32–D54, tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSAC
 | D86 | Alarmas | `openaegis-lambda-errors` (`Errors` ≥ 1), `openaegis-api-5xx` (`5xx` ≥ 1), `openaegis-api-4xx-pico` (`4xx` ≥ 50); Sum en 5 min, 1 de 1, *missing data* = not breaching; en `ALARM` → topic SNS `openaegis-alarmas` (Standard, sin cifrado) → email. Ver [10 §4.5](10-cloudwatch.md). 2026-10-25 | Bug en el código, falla entre API Gateway y Lambda, y ataque o escaneo; sin tráfico no suenan | Sin notificación; Slack/Chatbot; SNS cifrado con `alias/aws/sns` (CloudWatch no puede publicar) o con KMS propio (USD 1/mes) |
 | D87 | Dashboard | `OpenAegis`, creado con `put-dashboard` (JSON): alarmas, métricas de API y Lambda, rechazos del authorizer y auditoría sin `user_sub`. Ver [10 §4.6](10-cloudwatch.md). 2026-10-25 | Repetible y rápido; primer contacto con infraestructura como código | Armarlo a mano en la consola |
 | D88 | Verificación de alarmas | Una alarma se da por buena solo después de una **falla real** (simulacro); su verificación incluye namespace, métrica y **dimensiones**. Ver [10 §4.7](10-cloudwatch.md). 2026-10-25 | `set-alarm-state` no mira la métrica: no detectó una alarma con `FunctionName = Errors` | Confiar en la prueba manual |
+| D89 | Dónde corren los checks | Lambda aparte **`openaegis-scanner`** (mismo zip, handler `scanner.lambda_handler`, Python 3.14 arm64, 256 MB, timeout 30 s) con **su propio rol**. Ver [11 §4.3](11-checks.md). 2026-10-25 | El rol de la API no lee la configuración de la cuenta (blast radius); timeout propio | En la Lambda de la API; programado con EventBridge (se puede sumar después) |
+| D90 | Permisos del scanner | **Policy propia mínima** `openaegis-scanner-checks`: solo las acciones de lectura de los checks. Resuelve la pregunta abierta de la Etapa 7. 2026-10-25 | Auditable antes de instalar (D48); una herramienta de seguridad no pide de más | `SecurityAudit` (cientos de servicios, cambia sin aviso) |
+| D91 | Modelo de findings | `openaegis-findings` (PK `control_id`, SK `resource_id`): **estado actual**, cada scan pisa y borra los viejos. `openaegis-scans` (PK `"SCAN"`, SK `started_at`): un resumen por scan. On-demand, sin índices. 2026-10-25 | `Query` por control (D40) directo; el historial del score queda | Historial completo por recurso; tabla por scan con GSI |
+| D92 | Control automático vs. manual | Campo **`check_id`**: solo los de `CHECKS` o `""` (manual). `validation.py` importa `checks.py`, que no importa AWS. 2026-10-25 / 2026-10-27 | El `code` es editable; un error de tipeo da `400` al guardar | Vincular por `code`; texto libre |
+| D93 | Disparar un scan | `POST /scans` → `lambda:Invoke` con `InvocationType="Event"` → **`202`**. Reintentos asincrónicos en **0**. 2026-10-27 | La API sigue rápida (timeout 3 s); un scan fallido lo avisa la alarma, no un reintento silencioso | Sincrónico (timeout, dos Lambdas facturando) |
+| D94 | Status de un control automático | Lo **escribe el scanner** (algún `FAIL` → `FAIL`; algún `ERROR` o ninguno → `REVIEW`; si no, `PASS`), con una **condición de IAM** que solo le deja escribir `id`, `status`, `updated_at` y limita `ReturnValues`. La API responde **`409`** al `status` manual de un automático y **`400`** a un `POST` con `check_id` y `status`. 2026-10-27 | Nadie tapa un `FAIL` a mano; least privilege por atributo | Calcularlo al leer (N+1); calcularlo en la SPA |
+| D95 | Borrar un control con findings | **`409`** "pasalo a manual". Pasar a manual (`check_id: ""`) **borra sus findings**. Extiende D40. 2026-10-27 | Dos pasos deliberados; un manual con findings viejos no queda imborrable | `409` siempre; borrado en cascada |
+| D96 | Check de "cifrado de S3" | Se **reemplaza** por `s3-bucket-tls-only` (Deny con `aws:SecureTransport=false`). 2026-10-27 | Desde 2023 todo bucket nuevo tiene SSE-S3: siempre daría `PASS` | Exigir SSE-KMS (USD 1/mes por clave); eliminarlo |
+| D97 | Bucket sin BPA propio con el BPA de la cuenta completo | **`PASS` con evidencia** ("cubierto por el de la cuenta"). 2026-10-27 | Mide la protección efectiva; el BPA de la cuenta lo mide su propio check | `FAIL` igual (ruido) |
+| D98 | Regiones | **Sin loop por región** en la V1: los 5 checks son globales o multi-región. Resuelve la pregunta abierta del ROADMAP. 2026-10-27 | Sin llamadas de más; se decide con el primer check regional | Recorrer todas las regiones |
+| D99 | Score | % **ponderado por severidad** (crítica 8, alta 4, media 2, baja 1); `REVIEW` no suma; calculado en la SPA con `GET /controls` (`lib/score.ts`). 2026-10-28 | Arreglar un crítico pesa más; refleja los cambios manuales sin esperar un scan | % simple; dos scores; calcularlo en el scanner |
+| D100 | Cómo sabe la SPA que el scan terminó | **Polling** a `GET /scans/latest` cada 2 s hasta que **cambia** `started_at` (dato del servidor), con límite de 60 s. 2026-10-28 | No depende del reloj del navegador; sin infraestructura nueva | No esperar; WebSocket |
+| D101 | Remediación de los `FAIL` del primer scan | Manual: `Deny` sin TLS en las bucket policies (tras verificar `redirect-to-https` en CloudFront); trail multi-región `openaegis-trail` con management events, sin KMS, log file validation y lifecycle de 90 días en su bucket. 2026-10-27 | Cierra los dos `FAIL` a costo ~0; la app no remedia (fuera de la V1) | CloudWatch Logs + KMS (~USD 1/mes + ingesta); aceptar el riesgo |
 
 ## Propuestas (no decididas)
 
@@ -122,7 +136,7 @@ D32–D54, tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSAC
 |---|---|---|
 | Testing (Etapa 14) | **moto** para tests unitarios (sin Docker). **Floci** como candidato de tests de integración en el Bloque B (no aplica IAM por defecto; requiere el socket de Docker). AWS real para lo que dependa de IAM | [PROPUESTA] |
 | Alcance de la Etapa 13 | Resuelto: opción A (D59) y Etapa 13a adelantada (D60) | ✅ |
-| Permisos de los checks (Etapa 11) | `SecurityAudit` (administrada por AWS, simple, da mucho más de lo necesario) vs. policy propia mínima (least privilege estricto, hay que mantenerla) | [PENDIENTE] |
+| Permisos de los checks (Etapa 11) | Resuelto: policy propia mínima (D90) | ✅ |
 | CLI | Reutilizar los checks desde una CLI local | [PROPUESTA] para la revisión V1 → V2 |
 | Terraform | CDK para la app, Terraform para un *security lab* | Hipótesis del usuario, no decidida |
 | API bajo CloudFront | Servir la API en `/api/*` (mismo origen, sin CORS) | Mejora posible mencionada en D30 |
@@ -136,7 +150,7 @@ D32–D54, tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSAC
 0. **Modelo de producto (2026-10-17, [PROPUESTA]):** Community (open source, self-hosted, la V1) + una edición con más funciones (nombre a definir) que corra en servidores/contenedores, ¿como SaaS, self-hosted comercial o ambas? ¿Licencia de cada una? Se decide en la revisión V1 → V2. Ver [ROADMAP.md](ROADMAP.md).
 
 1. **Nombre:** el repo de GitHub **ya se llama `openaegis`** (verificado el 2026-10-15). Remoto local actualizado y Engram fijado en `openaegis` (2026-10-15). Queda: ¿renombrar los recursos de AWS (`cloud-sec-checklist-*`) cuando se recreen con CDK? (Engram toma el nombre del proyecto del remoto.)
-2. **Etapa 11:** ¿`SecurityAudit` o policy propia?
+2. ~~**Etapa 11:** ¿`SecurityAudit` o policy propia?~~ Resuelto: policy propia (D90).
 3. **Enums:** ¿aceptar `"high"` normalizando con `.upper()`, o mantener el 400?
 4. **Opcionales vacíos:** hoy `"description": ""` se guarda como string vacío. ¿Guardarlo así, omitir el atributo o, en `PATCH`, usarlo para **borrar** el campo (`REMOVE`)?
 5. **`CLAUDE.md`:** Claude Code lee automáticamente `CLAUDE.md`, no `AGENTS.md`. ¿Crear un `CLAUDE.md` mínimo que remita a `AGENTS.md`?
