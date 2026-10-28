@@ -260,7 +260,13 @@ components:
 
     CheckId:
       type: string
-      enum: ["", s3-account-public-access-block]
+      enum:
+        - ""
+        - s3-account-public-access-block
+        - s3-bucket-public-access-block
+        - s3-bucket-tls-only
+        - cloudtrail-multi-region-logging
+        - iam-root-mfa
       description: |
         Check automático que evalúa el control (D92). Ausente o "" = control manual. Los valores válidos
         son las claves de `CHECKS` en `backend/checks.py`.
@@ -277,7 +283,7 @@ components:
         control_id: { type: string, format: uuid }
         resource_id:
           type: string
-          description: ARN del recurso evaluado, `account` para los checks de la cuenta o `check` si el check no se pudo correr.
+          description: ARN del recurso evaluado (un bucket), `account` o `root` para los checks de la cuenta, o `check` si el check no se pudo correr.
           examples: [account]
         check_id: { type: string }
         status: { $ref: "#/components/schemas/FindingStatus" }
