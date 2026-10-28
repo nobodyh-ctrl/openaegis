@@ -8,6 +8,7 @@ import ContentLayout from "@cloudscape-design/components/content-layout";
 import Grid from "@cloudscape-design/components/grid";
 import Header from "@cloudscape-design/components/header";
 import Icon, { type IconProps } from "@cloudscape-design/components/icon";
+import KeyValuePairs from "@cloudscape-design/components/key-value-pairs";
 import Link from "@cloudscape-design/components/link";
 import PieChart from "@cloudscape-design/components/pie-chart";
 import SpaceBetween from "@cloudscape-design/components/space-between";
@@ -16,7 +17,10 @@ import Table from "@cloudscape-design/components/table";
 import { SEVERITY_ORDER, SeverityBadge, severityLabel, StatusBadge, statusLabel } from "@/components/controls/badges";
 import { SEVERITIES, STATUSES, type Control, type Severity, type Status } from "@/lib/api";
 import { useFollow } from "@/lib/navigation";
+import { useNotifications } from "@/lib/notifications";
+import { computeScore } from "@/lib/score";
 import { useControls } from "@/lib/use-controls";
+import { useLatestScan, useStartScan } from "@/lib/use-scans";
 
 /** Colores semánticos de los gráficos (D71): verde cumple, ámbar a revisar, rojo no cumple. */
 const STATUS_COLOR: Record<Status, string> = { PASS: "#16a34a", REVIEW: "#d97706", FAIL: "#dc2626" };
@@ -42,8 +46,7 @@ function computeStats(items: Control[]) {
     .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] || a.code.localeCompare(b.code));
   const recent = [...items].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 5);
   const criticalOpen = items.filter((c) => c.status !== "PASS" && (c.severity === "CRITICAL" || c.severity === "HIGH")).length;
-  const compliance = items.length ? Math.round((byStatus.PASS / items.length) * 100) : 0;
-  return { total: items.length, byStatus, matrix, failing, recent, criticalOpen, compliance };
+  return { total: items.length, byStatus, matrix, failing, recent, criticalOpen, score: computeScore(items) };
 }
 
 function Kpi({ label, value, hint, icon, variant, href, follow }: {
@@ -61,18 +64,71 @@ function Kpi({ label, value, hint, icon, variant, href, follow }: {
   );
 }
 
+/** Último scan + botón para correr uno nuevo. Los contadores son de FINDINGS (uno por recurso), no de controles. */
+function LatestScan() {
+  const { data: scan, isPending, error } = useLatestScan();
+  const startScan = useStartScan();
+  const { notify } = useNotifications();
+
+  const run = () =>
+    startScan.mutate(undefined, {
+      onSuccess: (s) => notify("success", `Scan terminado: ${s.pass_count} findings cumplen, ${s.fail_count} no cumplen y ${s.error_count} no se pudieron evaluar.`),
+      onError: (err) => notify("error", `Scan: ${err.message}`),
+    });
+
+  return (
+    <Container
+      header={
+        <Header
+          variant="h2"
+          description="Los checks de solo lectura evalúan la cuenta y actualizan el estado de los controles automáticos."
+          actions={<Button variant="primary" iconName="security" loading={startScan.isPending} onClick={run}>{startScan.isPending ? "Escaneando…" : "Escanear"}</Button>}
+        >
+          Último scan
+        </Header>
+      }
+    >
+      {isPending && <Spinner />}
+      {error && <Box color="text-status-error">No se pudo cargar el último scan: {error.message}</Box>}
+      {!isPending && !error && !scan && <Box color="text-body-secondary">Todavía no se corrió ningún scan.</Box>}
+      {scan && (
+        <KeyValuePairs
+          columns={4}
+          items={[
+            { label: "Cuándo", value: timeAgo(scan.finished_at) },
+            { label: "Controles evaluados", value: scan.controls_evaluated },
+            {
+              label: "Findings",
+              info: <Box variant="small" color="text-body-secondary">uno por recurso</Box>,
+              value: (
+                <SpaceBetween direction="horizontal" size="s">
+                  <span><Icon name="status-positive" variant="success" /> {scan.pass_count}</span>
+                  <span><Icon name="status-negative" variant="error" /> {scan.fail_count}</span>
+                  <span><Icon name="status-warning" variant="warning" /> {scan.error_count}</span>
+                </SpaceBetween>
+              ),
+            },
+            { label: "Duración", value: `${Math.max(0, Math.round((Date.parse(scan.finished_at) - Date.parse(scan.started_at)) / 1000))} s` },
+          ]}
+        />
+      )}
+    </Container>
+  );
+}
+
 export function DashboardPage() {
   const { data, isPending, error, refetch } = useControls();
   const follow = useFollow();
   const s = useMemo(() => computeStats(data?.items ?? []), [data]);
+  const scoreText = s.score.value === null ? "–" : `${s.score.value}%`;
 
   return (
     <ContentLayout
       header={
         <Header
           variant="h1"
-          description="Estado declarado de tus controles de seguridad. Los checks automáticos llegan en la Etapa 11."
-          actions={<Button variant="primary" iconName="add-plus" href="/app/controles/nuevo" onFollow={follow}>Nuevo control</Button>}
+          description="Estado de tus controles de seguridad: los automáticos los evalúa el scanner; los manuales, vos."
+          actions={<Button iconName="add-plus" href="/app/controles/nuevo" onFollow={follow}>Nuevo control</Button>}
         >
           Dashboard
         </Header>
@@ -94,8 +150,10 @@ export function DashboardPage() {
 
       {data && (
         <SpaceBetween size="l">
+          <LatestScan />
+
           <ColumnLayout columns={4}>
-            <Kpi label="Cumplimiento" value={`${s.compliance}%`} hint={`${s.byStatus.PASS} de ${s.total} controles cumplen`} icon="status-positive" variant="success" href="/app/controles?estado=PASS" follow={follow} />
+            <Kpi label="Score de seguridad" value={scoreText} hint={`Ponderado por severidad (crítica ×8, alta ×4, media ×2, baja ×1). ${s.score.automatic} de ${s.total} controles verificados por checks.`} icon="status-positive" variant="success" href="/app/controles" follow={follow} />
             <Kpi label="No cumplen" value={s.byStatus.FAIL} hint="Requieren corrección" icon="status-negative" variant="error" href="/app/controles?estado=FAIL" follow={follow} />
             <Kpi label="A revisar" value={s.byStatus.REVIEW} hint="Pendientes de evaluar" icon="status-warning" variant="warning" href="/app/controles?estado=REVIEW" follow={follow} />
             <Kpi label="Críticos y altos abiertos" value={s.criticalOpen} hint="Severidad crítica o alta sin cumplir" icon="security" variant="link" href="/app/controles" follow={follow} />
@@ -110,8 +168,8 @@ export function DashboardPage() {
                 hideTitles
                 hideDescriptions
                 data={STATUSES.map((st) => ({ title: statusLabel(st), value: s.byStatus[st], color: STATUS_COLOR[st] }))}
-                innerMetricValue={`${s.compliance}%`}
-                innerMetricDescription="cumple"
+                innerMetricValue={`${s.byStatus.PASS}/${s.total}`}
+                innerMetricDescription="cumplen"
                 ariaLabel="Distribución de controles por estado"
                 ariaDescription={STATUSES.map((st) => `${statusLabel(st)}: ${s.byStatus[st]}`).join(", ")}
                 segmentDescription={(d, sum) => `${d.value} controles (${sum ? Math.round((d.value / sum) * 100) : 0}%)`}

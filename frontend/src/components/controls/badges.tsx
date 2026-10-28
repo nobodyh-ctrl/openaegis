@@ -1,7 +1,8 @@
 /** Severidad y estado con los componentes de la consola: color + texto (nunca solo color). */
 import Badge from "@cloudscape-design/components/badge";
 import StatusIndicator, { type StatusIndicatorProps } from "@cloudscape-design/components/status-indicator";
-import type { Severity, Status } from "@/lib/api";
+import Box from "@cloudscape-design/components/box";
+import type { FindingStatus, Severity, Status } from "@/lib/api";
 
 const SEVERITY: Record<Severity, { label: string; color: "severity-critical" | "severity-high" | "severity-medium" | "severity-low" }> = {
   CRITICAL: { label: "Crítica", color: "severity-critical" },
@@ -28,4 +29,20 @@ export function SeverityBadge({ severity }: { severity: Severity }) {
 
 export function StatusBadge({ status }: { status: Status }) {
   return <StatusIndicator type={STATUS[status].type}>{STATUS[status].label}</StatusIndicator>;
+}
+
+const FINDING: Record<FindingStatus, { label: string; type: StatusIndicatorProps.Type }> = {
+  PASS: { label: "Cumple", type: "success" },
+  FAIL: { label: "No cumple", type: "error" },
+  // ámbar, como REVIEW: un ERROR es justamente lo que deja al control "A revisar"
+  ERROR: { label: "No se pudo evaluar", type: "warning" },
+};
+
+export function FindingBadge({ status }: { status: FindingStatus }) {
+  return <StatusIndicator type={FINDING[status].type}>{FINDING[status].label}</StatusIndicator>;
+}
+
+/** Automático (lo evalúa un check en cada scan) o manual (el estado lo pone una persona). */
+export function EvaluationBadge({ checkId }: { checkId?: string }) {
+  return checkId ? <Badge color="blue">Automático</Badge> : <Box color="text-body-secondary">Manual</Box>;
 }
