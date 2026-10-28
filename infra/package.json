@@ -1,0 +1,8 @@
+{
+  "name": "openaegis-infra",
+  "private": true,
+  "description": "CLI de AWS CDK con versión fija: se usa con `npx cdk` desde infra/",
+  "devDependencies": {
+    "aws-cdk": "2.1145.0"
+  }
+}
