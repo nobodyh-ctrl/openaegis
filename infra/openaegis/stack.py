@@ -17,11 +17,19 @@ justamente lo que OpenAegis evalúa; `cdk destroy` no tiene que poder borrarlo.
 from aws_cdk import Stack, Tags
 from constructs import Construct
 
+from openaegis.compute import Compute
+from openaegis.data import Data
+
 
 class OpenAegisStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
-        super().__init__(scope, construct_id, **kwargs)
+        # Sin telemetría de CDK (el recurso CDKMetadata): una herramienta de seguridad que alguien
+        # instala en su cuenta no manda datos que el usuario no eligió.
+        super().__init__(scope, construct_id, analytics_reporting=False, **kwargs)
 
         # Todos los recursos del stack llevan esta etiqueta: sirve para filtrar costos y para
         # distinguirlos de los recursos creados a mano durante la migración.
         Tags.of(self).add("project", "openaegis")
+
+        self.data = Data(self, "Data")
+        self.compute = Compute(self, "Compute", data=self.data)

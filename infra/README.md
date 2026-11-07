@@ -6,7 +6,9 @@ Un solo stack, `OpenAegis`, escrito en Python. `cdk synth` lo traduce a una plan
 |---|---|
 | `app.py` | Punto de entrada: crea la app y el stack |
 | `openaegis/stack.py` | El stack; cada área (datos, Lambdas, API, auth, frontend, observabilidad) es un módulo aparte |
-| `tests/` | Tests de la plantilla sin AWS: reglas de seguridad que tiene que cumplir cualquier recurso |
+| `openaegis/data.py` | Las 3 tablas de DynamoDB (controles, findings, scans) |
+| `openaegis/compute.py` | Las Lambdas `openaegis-api` y `openaegis-scanner`, con sus roles (permisos escritos a mano, sin `grant_*`) y sus log groups |
+| `tests/` | Tests de la plantilla sin AWS: `test_stack.py` tiene las reglas que cumple cualquier recurso; `test_data.py` y `test_compute.py`, las de cada construct (incluida la lista exacta de permisos de cada rol) |
 | `cdk.json` | Cómo correr la app + feature flags de CDK (los recomendados al crear el proyecto) |
 | `requirements.txt` | Librería de CDK (Python), versión exacta |
 | `package.json` | CLI de CDK (Node), versión exacta: se usa con `npx cdk`. Se actualiza junto con `requirements.txt` |
