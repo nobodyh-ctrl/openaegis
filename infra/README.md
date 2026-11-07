@@ -86,6 +86,48 @@ La prueba 2 da `200` sin token porque el JWT authorizer está en API Gateway, de
 
 ⚠️ La salida de `aws logs tail` trae el ID de la cuenta en los ARN (`functionArn`): taparlo al compartirla.
 
+### Verificación del 12.4: API Gateway + Cognito (2026-11-07, todo ✅)
+
+**En el `cdk diff`, antes de desplegar:** 8 filas `lambda:InvokeFunction` con principal `apigateway.amazonaws.com`, cada una con su método (`.../*/GET/controls`), y solo altas (`[+]`) en Resources. `cdk deploy` pidió `y` por los permisos nuevos (`broadening`).
+
+**Usuario** (el registro está cerrado). `-s` oculta lo que se tipea: con `read -r` solo, el email queda en pantalla.
+
+```bash
+POOL=$(aws cloudformation describe-stacks --stack-name OpenAegis \
+  --query "Stacks[0].Outputs[?OutputKey=='CognitoAuthority'].OutputValue" --output text | awk -F/ '{print $NF}')
+read -rs EMAIL && echo "email cargado"
+aws cognito-idp admin-create-user --user-pool-id "$POOL" --username "$EMAIL" \
+  --user-attributes Name=email,Value="$EMAIL" Name=email_verified,Value=true \
+  --desired-delivery-mediums EMAIL --query "User.UserStatus"        # → "FORCE_CHANGE_PASSWORD"
+```
+
+**SPA local contra el stack** (PowerShell, en `frontend/`): `.env.local` con los 4 outputs del deploy (`API_PROXY_TARGET` = `ApiUrl` **sin la barra final**, `VITE_COGNITO_AUTHORITY`, `VITE_COGNITO_CLIENT_ID`, `VITE_COGNITO_DOMAIN`). Las 4 tienen que ser **del mismo stack**: el authorizer valida el issuer (el pool) y la audience (el client). `npm run dev` y login en incógnito: contraseña temporal → nueva → TOTP nuevo. CRUD verificado.
+
+**Pruebas de la API** (los tokens se copian de la SPA con el snippet de AGENTS.md §7 y se cargan con `read -rs`):
+
+| Prueba | Esperado | Obtenido |
+|---|---|---|
+| Sin token / `Bearer falso` | `401` / `401` | ✅ `missing: token not provided` / `invalid_token: ... segments` |
+| Access token | `200` | ✅ |
+| ID token | `403` | ✅ `insufficient_scope`: los scopes solo vienen en el access token |
+| `PUT /controls` (no existe) | `404` | ✅ y sin línea en el access log (limitación de D85, igual que en la API manual) |
+| `POST /scans` → `GET /scans/latest` | `202` → `controls_evaluated: 0` | ✅ |
+| `get-policy` de `openaegis-api` | 8 `SourceArn` con método | ✅ |
+| Conteo de `openaegis-controls` / `cloud-sec-checklist-controls` | 1 → 0 tras el CRUD / sin cambios | ✅ |
+
+```bash
+# Permisos de invocación sin cuenta ni ID de la API
+aws lambda get-policy --function-name openaegis-api --query Policy --output text \
+  | jq -r '.Statement[].Condition.ArnLike."AWS:SourceArn"' | cut -d/ -f2- | sort
+# Access log sin IP ni sub
+aws logs tail /aws/vendedlogs/apigateway/openaegis-http-api --since 30m --format short \
+  | cut -d' ' -f2- | jq -c '{method, routeKey, status, authorizerError, integrationStatus}'
+```
+
+En el access log, `integrationStatus: "-"` en los rechazos prueba que la Lambda **no se ejecutó**. `status: 201` con `integrationStatus: 200` no es una contradicción: el primero es lo que respondió la Lambda, el segundo, el resultado de invocarla.
+
+⚠️ Datos sensibles de este paso: el bloque **Outputs** y el **Stack ARN** del `cdk deploy` (la URL de la API, el pool, el client, el dominio, la cuenta) y `GET /scans/latest`, que devuelve `requested_by` (el `sub` de quien lanzó el scan).
+
 ## Hallazgos del primer deploy
 
 | Hallazgo | Qué se hizo / propuesta |

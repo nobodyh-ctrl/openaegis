@@ -95,7 +95,7 @@ Todos creados **a mano en la consola**, con tag `Project = cloud-security-checkl
 
 ### 2.1 Stack CDK `OpenAegis` (Etapa 12) [CONVERSACIÓN, desplegado y verificado el 2026-11-07]
 
-Código en [`infra/`](../infra/README.md). Corre **en paralelo** con lo manual (D102): la SPA de CloudFront sigue usando `cloud-sec-checklist-*` para el CRUD. Su botón **Escanear** invoca `openaegis-scanner` por nombre, así que hoy dispara el scanner del stack, que lee `openaegis-controls` (vacía hasta el 12.7): da un scan vacío, no un error.
+Código en [`infra/`](../infra/README.md). Corre **en paralelo** con lo manual (D102): la SPA de CloudFront sigue usando `cloud-sec-checklist-*` para el CRUD. Su botón **Escanear** invoca `openaegis-scanner` por nombre, así que hoy dispara el scanner del stack, que lee `openaegis-controls` (vacía hasta el 12.7): da un scan vacío, no un error. Desde el 12.4, la SPA **local** (`npm run dev`) puede apuntar al stack con un `.env.local` armado con los outputs del deploy (ver [infra/README.md](../infra/README.md)).
 
 | Recurso | Configuración |
 |---|---|
@@ -107,6 +107,11 @@ Código en [`infra/`](../infra/README.md). Corre **en paralelo** con lo manual (
 | Lambda `openaegis-scanner` | Python 3.14 arm64, 256 MB, 30 s, `scanner.lambda_handler`, reintentos asincrónicos 0. Mismo zip que la API (mismo `CodeSha256`, verificado) |
 | 2 roles + 2 policies inline | Un rol por Lambda, statements a mano con los Sid de §5 (D109), **sin managed policies** (verificado: `[]`) |
 | 2 log groups | `/aws/lambda/openaegis-api` y `/aws/lambda/openaegis-scanner`: JSON, INFO, 1 semana, `DESTROY` (D110) |
+| Cognito User Pool `openaegis-users` (12.4) | Essentials, MFA obligatorio (TOTP), solo el admin crea usuarios, recuperación solo por email, deletion protection, `RETAIN` (D113). Dominio `openaegis-<tramo del UUID del stack>` (D116) |
+| App client `openaegis-spa` (12.4) | Sin secret, `code` + `openid email`, SRP + refresh, `PreventUserExistenceErrors` (D118), tokens 60 min / refresh 12 h, revocación. Callbacks y logout **solo de `localhost:5173`** hasta el 12.5 (D114) |
+| HTTP API `openaegis-http-api` (12.4) | Stage `$default` con auto-deploy, throttling 10/20, sin CORS hasta el 12.5 (D114). JWT authorizer `cognito-openaegis` con scope `openid` en las 8 rutas. Una integración Lambda proxy (payload 2.0) sin permisos propios (D115) |
+| Resource-based policy de `openaegis-api` (12.4) | 8 statements, uno por ruta con el método (`<api>/*/GET/controls`...), D57/D115. Verificado con `get-policy`. El scanner no tiene ninguna |
+| Log group `/aws/vendedlogs/apigateway/openaegis-http-api` (12.4) | Access log JSON con los 15 campos de D85, 1 semana, `DESTROY` (D117) |
 
 ### Rutas configuradas en API Gateway
 
