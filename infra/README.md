@@ -8,7 +8,9 @@ Un solo stack, `OpenAegis`, escrito en Python. `cdk synth` lo traduce a una plan
 | `openaegis/stack.py` | El stack; cada área (datos, Lambdas, API, auth, frontend, observabilidad) es un módulo aparte |
 | `openaegis/data.py` | Las 3 tablas de DynamoDB (controles, findings, scans) |
 | `openaegis/compute.py` | Las Lambdas `openaegis-api` y `openaegis-scanner`, con sus roles (permisos escritos a mano, sin `grant_*`: D109) y sus log groups (D110) |
-| `tests/` | Tests de la plantilla sin AWS: `test_stack.py` tiene las reglas que cumple cualquier recurso; `test_data.py` y `test_compute.py`, las de cada construct (incluida la lista exacta de permisos de cada rol) |
+| `openaegis/auth.py` | Cognito: User Pool con MFA obligatorio y registro cerrado, app client de la SPA (PKCE, sin secret) y dominio del login, con un prefijo derivado del ID del stack |
+| `openaegis/api.py` | HTTP API `openaegis-http-api`: JWT authorizer en las 8 rutas, throttling, access log y **un permiso de invocación por ruta con el método** (D57; la integración de CDK por defecto lo deshace) |
+| `tests/` | Tests de la plantilla sin AWS: `test_stack.py` tiene las reglas que cumple cualquier recurso; `test_data.py`, `test_compute.py`, `test_auth.py` y `test_api.py`, las de cada construct (incluida la lista exacta de permisos de cada rol y de invocación de la Lambda). 46 tests al 12.4 |
 | `cdk.json` | Cómo correr la app + feature flags de CDK (los recomendados al crear el proyecto) |
 | `requirements.txt` | Librería de CDK (Python), versión exacta |
 | `package.json` | CLI de CDK (Node), versión exacta: se usa con `npx cdk`. Se actualiza junto con `requirements.txt` |
