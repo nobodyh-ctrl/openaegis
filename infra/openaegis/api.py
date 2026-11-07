@@ -6,8 +6,8 @@ Replica la API de las Etapas 5, 9 y 10 (D26-D29, D57, D82, D85):
                   └─ JWT authorizer cognito-openaegis (scope openid) en las 8 rutas
                        └─ integración Lambda proxy (payload 2.0) ──► openaegis-api
 
-Sin CORS en el 12.4: en desarrollo la SPA usa el proxy de Vite (mismo origen). El único origen
-legítimo es CloudFront, y se agrega en el 12.5 como referencia a la distribución.
+CORS: un solo origen, el de la distribución de CloudFront, como referencia (D28, D114). Sin
+localhost: en desarrollo la SPA usa el proxy de Vite (mismo origen).
 
 PERMISOS DE INVOCACIÓN: la integración de CDK (`HttpLambdaIntegration`) agrega sus propios
 permisos, con el método como comodín (`<api>/*/*/controls`) o, con `scopePermissionToRoute=False`,
@@ -18,7 +18,7 @@ de acá no agrega ninguno, y cada ruta suma el suyo con el método explícito.
 import json
 import re
 
-from aws_cdk import RemovalPolicy
+from aws_cdk import Duration, RemovalPolicy
 from aws_cdk import aws_apigateway as apigw
 from aws_cdk import aws_apigatewayv2 as apigwv2
 from aws_cdk import aws_apigatewayv2_authorizers as authorizers
@@ -80,7 +80,9 @@ class _LambdaProxyWithoutPermissions(apigwv2.HttpRouteIntegration):
 
 
 class Api(Construct):
-    def __init__(self, scope: Construct, construct_id: str, *, function: lambda_.IFunction, auth: Auth) -> None:
+    def __init__(
+        self, scope: Construct, construct_id: str, *, function: lambda_.IFunction, auth: Auth, spa_url: str
+    ) -> None:
         super().__init__(scope, construct_id)
 
         self.http_api = apigwv2.HttpApi(
@@ -89,6 +91,14 @@ class Api(Construct):
             api_name=API_NAME,
             description="API de OpenAegis: CRUD de controles, scans y findings",
             create_default_stage=False,  # el stage se arma abajo, con throttling y access log
+            # Lo responde API Gateway (D29), antes del authorizer: la preflight no lleva token.
+            cors_preflight=apigwv2.CorsPreflightOptions(
+                allow_origins=[spa_url],
+                allow_methods=[apigwv2.CorsHttpMethod[m] for m in ("GET", "POST", "PATCH", "DELETE")],
+                allow_headers=["content-type", "authorization"],
+                allow_credentials=False,
+                max_age=Duration.seconds(0),  # paridad con lo manual; subirlo es una mejora aparte
+            ),
         )
 
         # Mismo prefijo que el manual (/aws/vendedlogs/): el recomendado para logs que escribe un servicio.
