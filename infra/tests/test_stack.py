@@ -55,8 +55,11 @@ class StackRulesTest(unittest.TestCase):
         # `cdk destroy` no tiene que poder borrarlo.
         self.template.resource_count_is("AWS::CloudTrail::Trail", 0)
 
+    def test_sin_telemetria_de_cdk(self):
+        # analytics_reporting=False en el stack: sin el recurso CDKMetadata.
+        self.template.resource_count_is("AWS::CDK::Metadata", 0)
+
     def test_todo_lleva_la_etiqueta_del_proyecto(self):
-        # Hoy el stack no tiene recursos; esta regla se vuelve útil desde 12.3.
         for logical_id, resource in self.template.to_json().get("Resources", {}).items():
             tags = resource.get("Properties", {}).get("Tags")
             if tags is None:
