@@ -1,6 +1,6 @@
 # Roadmap
 
-> Estado al 2026-10-28. **Regla absoluta: terminar la V1 (Bloque A) antes de empezar cualquier cosa del Bloque B.**
+> Estado al 2026-11-07. **Regla absoluta: terminar la V1 (Bloque A) antes de empezar cualquier cosa del Bloque B.**
 > El Bloque B es una **visión**, no un plan cerrado: cada tecnología se agrega solo si resuelve un problema real (*problema → requisito → alternativas → trade-offs → decisión → implementación → testing → observación → documentación*).
 
 ## Bloque A — V1: Cloud Security Checklist / Assessment (read-only)
@@ -30,7 +30,7 @@ Orden original 0–16. **Cambio acordado:** Lambda pasó a ser la Etapa 4 y API 
 | 9 | Cognito: login con MFA en la SPA + JWT authorizer en el HTTP API (D80–D83, ADR-007) | ✅ (2026-10-24) | [09-cognito.md](09-cognito.md) |
 | 10 | CloudWatch: logs JSON con auditoría, access logs, alarmas por email, dashboard y simulacro de falla (D84–D88, ADR-008) | ✅ (2026-10-25) | [10-cloudwatch.md](10-cloudwatch.md) |
 | **11** | **Checks read-only con boto3 (5 checks) → findings → score ponderado → Escanear en la SPA (D89–D101, ADR-009)** | ✅ (2026-10-28) | [11-checks.md](11-checks.md) |
-| 12 | AWS CDK (Python): toda la infraestructura como código; habilita el modelo self-hosted | [PENDIENTE] | — |
+| **12** | **AWS CDK (Python): toda la infraestructura como código; habilita el modelo self-hosted (D102–D112)** | 🔄 en curso: 12.3 ✅ (2026-11-07), sigue el 12.4 | [infra/README.md](../infra/README.md) (`docs/12-cdk.md` en el 12.8) |
 | 13 | GitHub Actions / CI | [PENDIENTE] — opción **A** (D59): se completa con `cdk synth` después de la Etapa 12 | — |
 | 14 | Testing | [PENDIENTE] | — |
 | 15 | Documentación: README completo y ADRs | [PENDIENTE] (se avanza en cada etapa) | — |
@@ -56,7 +56,18 @@ Orden original 0–16. **Cambio acordado:** Lambda pasó a ser la Etapa 4 y API 
 11. ✅ Etapa 9 — Cognito (2026-10-22 → 2026-10-24): User Pool con registro cerrado y MFA obligatorio, login con Authorization Code + PKCE en la SPA (`oidc-client-ts`), access token en cada llamada y JWT authorizer con scope `openid` en las 5 rutas; verificado en producción (`401` sin token, `403` con ID token, 0 ejecuciones de la Lambda ante tokens falsos). Manejo del `401`/`403` en la SPA desplegado y probado (PR #13), docs (PR #14), diagramas (PR #15) y checkpoint. Queda como mejora: patrones de Cognito en `check_identifiers.py`. [09-cognito.md](09-cognito.md).
 12. ✅ Etapa 10 — CloudWatch (2026-10-24 → 2026-10-25): logs JSON con el `sub` de cada cambio (PR #17), access logs de API Gateway con el motivo de cada rechazo, Logs Insights, 3 alarmas → SNS → email, dashboard `OpenAegis` y simulacro de falla que encontró una alarma mal configurada. USD 0. Limitación conocida: HTTP API no loguea las rutas inexistentes. [10-cloudwatch.md](10-cloudwatch.md).
 13. ✅ Etapa 11 — Checks read-only (2026-10-25 → 2026-10-28): Lambda `openaegis-scanner` con rol propio de solo lectura (escritura limitada por IAM al `status` de los controles), 5 checks (BPA de cuenta y de buckets, S3 solo TLS, CloudTrail multi-región, MFA del root), tablas de findings y de scans, rutas `POST /scans` (`202`), `GET /scans/latest` y `GET /findings`, y en la SPA: Escanear, findings por control y score ponderado. El primer scan encontró 2 `FAIL` reales, corregidos a mano. PRs #19 a #22. [11-checks.md](11-checks.md).
-14. Etapa 12 — CDK en Python: recrear todo como código, borrar los recursos manuales (deletion protection de la tabla está desactivado para esto), `cdk synth / deploy / destroy`.
+14. Etapa 12 — CDK en Python: un stack nuevo `OpenAegis` en paralelo con lo manual (D102), y al final borrar lo manual recurso por recurso.
+
+    | Paso | Qué | Estado |
+    |---|---|---|
+    | 12.1 | Conceptos, decisiones grandes, costo del bootstrap (~USD 0) | ✅ |
+    | 12.2 | Esqueleto de `infra/` + tests del stack + `cdk synth` en el CI (PR #25) | ✅ |
+    | 12.3 | Tablas + 2 Lambdas + roles (PR #26), bootstrap, primer deploy y verificación (4 pruebas en CloudShell) | ✅ 2026-11-07 |
+    | 12.4 | API Gateway + JWT authorizer + Cognito | Pendiente |
+    | 12.5 | S3 + CloudFront + deploy de la SPA | Pendiente |
+    | 12.6 | Logs, alarmas, SNS, dashboard (choque de nombres como en D111) | Pendiente |
+    | 12.7 | Copiar los controles a `openaegis-controls`, verificar todo en paralelo, scan | Pendiente |
+    | 12.8 | Borrar lo manual (con OK, recurso por recurso) + `docs/12-cdk.md` + checkpoint | Pendiente |
 15. Etapa 13 — CI según la opción que elija el usuario.
 16. Etapa 14 — tests (unitarios de `validation.py` sin AWS; `controls.py` con un repositorio falso; moto [PROPUESTA]).
 17. Etapa 15 — README completo, ADRs, lecciones aprendidas.
