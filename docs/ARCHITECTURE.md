@@ -95,7 +95,7 @@ Todos creados **a mano en la consola**, con tag `Project = cloud-security-checkl
 
 ### 2.1 Stack CDK `OpenAegis` (Etapa 12) [CONVERSACIÓN, desplegado y verificado el 2026-11-07]
 
-Código en [`infra/`](../infra/README.md). Corre **en paralelo** con lo manual (D102): la SPA de CloudFront sigue usando `cloud-sec-checklist-*` para el CRUD. Su botón **Escanear** invoca `openaegis-scanner` por nombre, así que hoy dispara el scanner del stack, que lee `openaegis-controls` (vacía hasta el 12.7): da un scan vacío, no un error. Desde el 12.4, la SPA **local** (`npm run dev`) puede apuntar al stack con un `.env.local` armado con los outputs del deploy (ver [infra/README.md](../infra/README.md)).
+Código en [`infra/`](../infra/README.md). Corre **en paralelo** con lo manual (D102): la SPA de CloudFront sigue usando `cloud-sec-checklist-*` para el CRUD. Su botón **Escanear** invoca `openaegis-scanner` por nombre, así que hoy dispara el scanner del stack, que lee `openaegis-controls` (vacía hasta el 12.7): da un scan vacío, no un error. Desde el 12.4, la SPA **local** (`npm run dev`) puede apuntar al stack con un `.env.local` armado con los outputs del deploy (ver [infra/README.md](../infra/README.md)). Desde el 12.5 hay **dos SPAs publicadas**: la de la distribución manual (pool viejo, tabla con los controles reales) y la del stack (pool nuevo, `openaegis-controls` vacía hasta el 12.7).
 
 | Recurso | Configuración |
 |---|---|
@@ -112,6 +112,8 @@ Código en [`infra/`](../infra/README.md). Corre **en paralelo** con lo manual (
 | HTTP API `openaegis-http-api` (12.4) | Stage `$default` con auto-deploy, throttling 10/20, sin CORS hasta el 12.5 (D114). JWT authorizer `cognito-openaegis` con scope `openid` en las 8 rutas. Una integración Lambda proxy (payload 2.0) sin permisos propios (D115) |
 | Resource-based policy de `openaegis-api` (12.4) | 8 statements, uno por ruta con el método (`<api>/*/GET/controls`...), D57/D115. Verificado con `get-policy`. El scanner no tiene ninguna |
 | Log group `/aws/vendedlogs/apigateway/openaegis-http-api` (12.4) | Access log JSON con los 15 campos de D85, 1 semana, `DESTROY` (D117) |
+| S3 bucket de la SPA (12.5) | Nombre generado (output `SpaBucket`), BPA 4/4, `BucketOwnerEnforced`, SSE-S3, sin versioning, `DESTROY` sin auto-delete (D120). Bucket policy: `Deny` sin TLS + `Allow` `s3:GetObject` solo para la distribución. Verificado: `403` al leerlo directo |
+| CloudFront `openaegis-spa` (12.5) | OAC, redirect a HTTPS, CachingOptimized, default root `index.html`, error pages 403/404 → `/index.html` con 200, sin WAF ni logging. Su dominio es el origen del CORS de la API y un callback de Cognito, como referencia (D114). El build lo sube `scripts/deploy_spa.sh` (D119) |
 
 ### Rutas configuradas en API Gateway
 
