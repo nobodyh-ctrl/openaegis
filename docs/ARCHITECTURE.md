@@ -85,13 +85,28 @@ Todos creados **a mano en la consola**, con tag `Project = cloud-security-checkl
 | HTTP API `cloud-sec-checklist-http-api` | Stage `$default` con auto-deploy · throttling rate 10 / burst 20 · CORS Allow-Origin = solo `https://<distribucion>.cloudfront.net` · Allow-Methods `GET`, `POST`, `PATCH`, `DELETE` · AllowCredentials `false` · MaxAge `0` (verificado con `get-api` el 2026-10-13). Allow-Headers `content-type`, `authorization` desde la Etapa 9 (verificado el 2026-10-22) · **JWT authorizer `cognito-openaegis`** (issuer = el User Pool, audience = `<client-id>`) en las 8 rutas con scope `openid` (verificado con `get-authorizers` y `get-routes` el 2026-10-24; las 3 rutas de la Etapa 11, el 2026-10-27) | [05-api-gateway.md](05-api-gateway.md) |
 | Cognito User Pool (`<user-pool-id>`) | Plan *Essentials* · MFA obligatorio (TOTP) · solo el admin crea usuarios · deletion protection · dominio del login `<dominio-cognito>` · app client `openaegis-spa` público (sin secret), Authorization Code + PKCE, scopes `openid email`, callbacks `/app/callback` y logout `/app` de localhost y CloudFront, access/ID token 60 min, refresh token 12 h, revocación activa (verificado el 2026-10-22) | [09-cognito.md](09-cognito.md) |
 | IAM Access Analyzer `openaegis-external-access` | Tipo `ACCOUNT` (*external access*, gratis), zona de confianza = la cuenta, `us-east-1`. Creado el 2026-10-15; 0 findings activos al crearlo. Detectivo: no modifica nada | [07-iam.md](07-iam.md) |
-| Lambda `openaegis-scanner` (Etapa 11) | Python 3.14, arm64, 256 MB, timeout 30 s, handler `scanner.lambda_handler` (mismo zip que la API), log format JSON (INFO), retención 1 semana, reintentos asincrónicos 0, env `TABLE_NAME`, `FINDINGS_TABLE`, `SCANS_TABLE`. Sin resource-based policy | [11-checks.md](11-checks.md) |
-| Execution role del scanner | Policy de logs de la consola + **`openaegis-scanner-checks`** (ver §5) | [11-checks.md](11-checks.md) |
-| Alarma `openaegis-scanner-errors` | `Errors` del scanner ≥ 1 en 5 min → SNS `openaegis-alarmas` | [11-checks.md](11-checks.md) |
-| DynamoDB `openaegis-findings` | PK `control_id`, SK `resource_id`, on-demand, sin índices (D91) | [11-checks.md](11-checks.md) |
-| DynamoDB `openaegis-scans` | PK `pk` (siempre `"SCAN"`), SK `started_at`, on-demand, sin índices (D91) | [11-checks.md](11-checks.md) |
+| ~~Lambda `openaegis-scanner` (Etapa 11)~~ | **Borrada a mano el 2026-11-07** (D111), junto con su log group: la reemplaza la del stack (§2.1). Configuración que tenía: Python 3.14, arm64, 256 MB, timeout 30 s, handler `scanner.lambda_handler` (mismo zip que la API), log format JSON (INFO), retención 1 semana, reintentos asincrónicos 0, env `TABLE_NAME`, `FINDINGS_TABLE`, `SCANS_TABLE`. Sin resource-based policy | [11-checks.md](11-checks.md) |
+| Execution role del scanner (manual) | Policy de logs de la consola + **`openaegis-scanner-checks`** (ver §5). Sin Lambda que lo use desde el 2026-11-07; se borra en el 12.8 | [11-checks.md](11-checks.md) |
+| Alarma `openaegis-scanner-errors` | `Errors` del scanner ≥ 1 en 5 min → SNS `openaegis-alarmas`. Como filtra por nombre de función, **desde el 2026-11-07 vigila al scanner del stack**. Se reemplaza en el 12.6 | [11-checks.md](11-checks.md) |
+| ~~DynamoDB `openaegis-findings`~~ | **Borrada a mano el 2026-11-07** (D111); la reemplaza la del stack. Era PK `control_id`, SK `resource_id`, on-demand, sin índices (D91) | [11-checks.md](11-checks.md) |
+| ~~DynamoDB `openaegis-scans`~~ | **Borrada a mano el 2026-11-07** (D111); la reemplaza la del stack. Era PK `pk` (siempre `"SCAN"`), SK `started_at`, on-demand, sin índices (D91) | [11-checks.md](11-checks.md) |
 | CloudTrail `openaegis-trail` (D101) | Multi-región, solo management events (Read y Write), sin KMS (SSE-S3), log file validation, sin CloudWatch Logs. Bucket `aws-cloudtrail-logs-<sufijo>` con lifecycle de 90 días, BPA 4/4 y `Deny` sin TLS | [11-checks.md](11-checks.md) |
 | DynamoDB `cloud-sec-checklist-controls` | PK `id` (String), sin sort key, on-demand, Standard, cifrado *Owned by Amazon DynamoDB*, **deletion protection desactivado** (a propósito, para la migración a CDK), sin PITR, sin GSI | [06-dynamodb.md](06-dynamodb.md) |
+
+### 2.1 Stack CDK `OpenAegis` (Etapa 12) [CONVERSACIÓN, desplegado y verificado el 2026-11-07]
+
+Código en [`infra/`](../infra/README.md). Corre **en paralelo** con lo manual (D102): la SPA de CloudFront sigue usando `cloud-sec-checklist-*` para el CRUD. Su botón **Escanear** invoca `openaegis-scanner` por nombre, así que hoy dispara el scanner del stack, que lee `openaegis-controls` (vacía hasta el 12.7): da un scan vacío, no un error.
+
+| Recurso | Configuración |
+|---|---|
+| Stack `CDKToolkit` (bootstrap) | Bucket de assets, roles de deploy, versión en SSM; termination protection. Rol de ejecución de CloudFormation con `AdministratorAccess` (aceptado en la V1, ver [infra/README.md](../infra/README.md#hallazgos-del-primer-deploy)) |
+| DynamoDB `openaegis-controls` | PK `id`, on-demand, **deletion protection**, `RETAIN_ON_UPDATE_OR_DELETE` (D106) |
+| DynamoDB `openaegis-findings` | PK `control_id` + SK `resource_id`, on-demand, `DESTROY` |
+| DynamoDB `openaegis-scans` | PK `pk` + SK `started_at`, on-demand, `DESTROY` |
+| Lambda `openaegis-api` | Python 3.14 arm64, 128 MB, 3 s, `handler.lambda_handler`, env `TABLE_NAME`, `FINDINGS_TABLE`, `SCANS_TABLE`, `SCANNER_FUNCTION`. Sin API Gateway todavía (12.4) |
+| Lambda `openaegis-scanner` | Python 3.14 arm64, 256 MB, 30 s, `scanner.lambda_handler`, reintentos asincrónicos 0. Mismo zip que la API (mismo `CodeSha256`, verificado) |
+| 2 roles + 2 policies inline | Un rol por Lambda, statements a mano con los Sid de §5 (D109), **sin managed policies** (verificado: `[]`) |
+| 2 log groups | `/aws/lambda/openaegis-api` y `/aws/lambda/openaegis-scanner`: JSON, INFO, 1 semana, `DESTROY` (D110) |
 
 ### Rutas configuradas en API Gateway
 
@@ -262,4 +277,6 @@ VS Code (backend/*.py) ──Compress-Archive──► lambda.zip ──Upload f
                                                             └─────────── el MISMO zip ──► openaegis-scanner
 ```
 
-La fuente de verdad es el repo. No hay IaC: la infraestructura **no es reproducible** todavía. Eso es lo que resuelve la Etapa 12 (CDK) y lo que hace viable el modelo self-hosted.
+La fuente de verdad es el repo. Ese es el deploy de la app **manual** (`cloud-sec-checklist-api`).
+
+Desde el 2026-11-07, las Lambdas del stack `OpenAegis` se despliegan con CDK: `cdk deploy` arma el zip con `backend/*.py` (solo los `.py`: `exclude=["*", "!*.py"]`) y lo sube al bucket del bootstrap. Ver [infra/README.md](../infra/README.md). Lo que falta pasar a código (API, Cognito, frontend, observabilidad) va en los pasos 12.4 a 12.6.
