@@ -10,7 +10,7 @@ TOTP en el primer login.
 | MFA               | obligatorio, solo TOTP (sin SMS: cuesta y es el factor más débil)          |
 | App client        | público, sin secret (lo reemplaza PKCE), solo Authorization Code           |
 | Scopes            | openid + email                                                             |
-| Callbacks         | solo localhost por ahora; el dominio de CloudFront se suma en el 12.5      |
+| Callbacks         | localhost (desarrollo) + la distribución de CloudFront, como referencia    |
 | Tokens            | access e ID 60 min, refresh 12 h, revocación activa                        |
 | Si se borra el stack | el pool SE CONSERVA: los usuarios con su MFA no se regeneran (como D106) |
 """
@@ -33,7 +33,8 @@ def _domain_prefix():
 
 
 class Auth(Construct):
-    def __init__(self, scope: Construct, construct_id: str) -> None:
+    def __init__(self, scope: Construct, construct_id: str, *, spa_url: str) -> None:
+        """`spa_url`: https://<dominio de la distribución>, una referencia a CloudFront (D114)."""
         super().__init__(scope, construct_id)
 
         self.user_pool = cognito.UserPool(
@@ -66,8 +67,8 @@ class Auth(Construct):
             o_auth=cognito.OAuthSettings(
                 flows=cognito.OAuthFlows(authorization_code_grant=True),
                 scopes=[cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL],
-                callback_urls=[f"{LOCAL_SPA}/app/callback"],
-                logout_urls=[f"{LOCAL_SPA}/app"],
+                callback_urls=[f"{LOCAL_SPA}/app/callback", f"{spa_url}/app/callback"],
+                logout_urls=[f"{LOCAL_SPA}/app", f"{spa_url}/app"],
             ),
             supported_identity_providers=[cognito.UserPoolClientIdentityProvider.COGNITO],
             access_token_validity=Duration.minutes(60),

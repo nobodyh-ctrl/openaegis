@@ -9,8 +9,10 @@ Un solo stack, `OpenAegis`, escrito en Python. `cdk synth` lo traduce a una plan
 | `openaegis/data.py` | Las 3 tablas de DynamoDB (controles, findings, scans) |
 | `openaegis/compute.py` | Las Lambdas `openaegis-api` y `openaegis-scanner`, con sus roles (permisos escritos a mano, sin `grant_*`: D109) y sus log groups (D110) |
 | `openaegis/auth.py` | Cognito: User Pool con MFA obligatorio y registro cerrado, app client de la SPA (PKCE, sin secret) y dominio del login, con un prefijo derivado del ID del stack |
-| `openaegis/api.py` | HTTP API `openaegis-http-api`: JWT authorizer en las 8 rutas, throttling, access log y **un permiso de invocación por ruta con el método** (D57; la integración de CDK por defecto lo deshace) |
-| `tests/` | Tests de la plantilla sin AWS: `test_stack.py` tiene las reglas que cumple cualquier recurso; `test_data.py`, `test_compute.py`, `test_auth.py` y `test_api.py`, las de cada construct (incluida la lista exacta de permisos de cada rol y de invocación de la Lambda). 46 tests al 12.4 |
+| `openaegis/api.py` | HTTP API `openaegis-http-api`: JWT authorizer en las 8 rutas, CORS solo para la distribución, throttling, access log y **un permiso de invocación por ruta con el método** (D57; la integración de CDK por defecto lo deshace) |
+| `openaegis/frontend.py` | Bucket privado de la SPA (BPA, SSE-S3, solo TLS) + distribución de CloudFront con OAC (solo `s3:GetObject`) y error pages 403/404 → `/index.html`. Su dominio llega a Cognito y al CORS como **referencia** |
+| `../scripts/deploy_spa.sh` | Sube el build de la SPA (D79). No es parte del stack: el build necesita los outputs del stack |
+| `tests/` | Tests de la plantilla sin AWS: `test_stack.py` tiene las reglas que cumple cualquier recurso; `test_data.py`, `test_compute.py`, `test_auth.py` y `test_api.py`, las de cada construct (incluida la lista exacta de permisos de cada rol y de invocación de la Lambda), más `test_frontend.py`. 57 tests al 12.5 |
 | `cdk.json` | Cómo correr la app + feature flags de CDK (los recomendados al crear el proyecto) |
 | `requirements.txt` | Librería de CDK (Python), versión exacta |
 | `package.json` | CLI de CDK (Node), versión exacta: se usa con `npx cdk`. Se actualiza junto con `requirements.txt` |
@@ -57,6 +59,38 @@ CloudShell: cd ~/openaegis && git pull → cd infra && source .venv/bin/activate
 ```
 
 `cdk deploy` corre con `--require-approval broadening` (el valor por defecto): pide `y` cada vez que un cambio **amplía** permisos (IAM, resource-based policies, security groups).
+
+### Desplegar la SPA (desde el 12.5)
+
+CDK crea el bucket y la distribución, pero **no sube el build**: el build lleva adentro la URL de la API y los datos de Cognito, que recién existen después del deploy del stack. El orden es siempre **`cdk deploy` → build → subida**.
+
+**1. Build en la PC** (PowerShell, en `frontend/`). El build se hace sin credenciales de AWS (D79). `.env.local` tiene que tener las `VITE_COGNITO_*` del stack (ver la verificación del 12.4), y `VITE_API_URL` se pasa solo para el build, porque en desarrollo manda el proxy:
+
+```powershell
+$env:VITE_API_URL = "<ApiUrl sin la barra final>"
+npm ci
+npm run build
+Remove-Item Env:VITE_API_URL
+tar.exe -a -c -f dist.zip -C dist .     # rutas compatibles con Linux
+```
+
+**2. Subida en CloudShell:** subir `frontend\dist.zip` con *Actions → Upload file* (queda en `~/dist.zip`) y:
+
+```bash
+bash ~/openaegis/scripts/deploy_spa.sh
+```
+
+El script saca el bucket y la distribución de los outputs, **frena si el build es de otro stack** (busca la URL de la API y el client ID en el `.js`, sin imprimirlos) y sube en el orden de D79: assets (1 año, `immutable`) → archivos de `public/` (1 día) → `index.html` (`no-cache`) → invalidación de `/` y `/index.html`. Sin `--delete`.
+
+### Desinstalar
+
+```bash
+aws s3 rm "s3://$(aws cloudformation describe-stacks --stack-name OpenAegis \
+  --query "Stacks[0].Outputs[?OutputKey=='SpaBucket'].OutputValue" --output text)" --recursive
+npx cdk destroy
+```
+
+El bucket se vacía primero: sin `autoDeleteObjects` (que agregaría una Lambda con permiso de borrar objetos), `cdk destroy` falla con el bucket lleno. Quedan **a propósito**: la tabla `openaegis-controls` y el User Pool (`RETAIN` + deletion protection, D106 y D113), y el stack `CDKToolkit` del bootstrap (termination protection).
 
 ### Verificación del 12.3 (2026-11-07, todo ✅)
 

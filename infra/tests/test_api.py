@@ -76,13 +76,25 @@ class ApiTest(unittest.TestCase):
 
     # ---- La API ----
 
-    def test_http_api_con_nombre_fijo_y_sin_cors(self):
-        # Sin CORS en el 12.4: en desarrollo la SPA usa el proxy de Vite (mismo origen).
-        # El origen de CloudFront se agrega en el 12.5, como referencia.
+    def test_http_api_con_nombre_fijo(self):
         _, api = self.only("AWS::ApiGatewayV2::Api")
         self.assertEqual(api["Properties"]["Name"], "openaegis-http-api")
         self.assertEqual(api["Properties"]["ProtocolType"], "HTTP")
-        self.assertNotIn("CorsConfiguration", api["Properties"])
+
+    def test_cors_solo_para_la_distribucion(self):
+        # Paridad con lo manual (D28, D29, Etapa 9): un solo origen, el de CloudFront, como
+        # REFERENCIA. Sin localhost: en desarrollo la SPA usa el proxy de Vite (D114).
+        _, api = self.only("AWS::ApiGatewayV2::Api")
+        cors = api["Properties"]["CorsConfiguration"]
+        distribution_id, _ = self.only("AWS::CloudFront::Distribution")
+        self.assertEqual(
+            cors["AllowOrigins"],
+            [{"Fn::Join": ["", ["https://", {"Fn::GetAtt": [distribution_id, "DomainName"]}]]}],
+        )
+        self.assertCountEqual(cors["AllowMethods"], ["GET", "POST", "PATCH", "DELETE"])
+        self.assertCountEqual(cors["AllowHeaders"], ["content-type", "authorization"])
+        self.assertFalse(cors.get("AllowCredentials", False))
+        self.assertEqual(cors["MaxAge"], 0)  # paridad: subirlo es una mejora aparte
 
     def test_las_rutas_son_exactamente_las_del_backend(self):
         # Una ruta en la API sin handler da 404 del backend; un handler sin ruta es código muerto.

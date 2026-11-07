@@ -21,6 +21,7 @@ from openaegis.api import Api
 from openaegis.auth import Auth
 from openaegis.compute import Compute
 from openaegis.data import Data
+from openaegis.frontend import Frontend
 
 
 class OpenAegisStack(Stack):
@@ -35,8 +36,10 @@ class OpenAegisStack(Stack):
 
         self.data = Data(self, "Data")
         self.compute = Compute(self, "Compute", data=self.data)
-        self.auth = Auth(self, "Auth")
-        self.api = Api(self, "Api", function=self.compute.api, auth=self.auth)
+        # El frontend va antes: Cognito (callbacks) y la API (CORS) necesitan su dominio.
+        self.frontend = Frontend(self, "Frontend")
+        self.auth = Auth(self, "Auth", spa_url=self.frontend.url)
+        self.api = Api(self, "Api", function=self.compute.api, auth=self.auth, spa_url=self.frontend.url)
 
         # Lo que la SPA necesita para apuntar al stack (frontend/.env.local). No son secretos: quedan
         # visibles en el .js de la SPA. Pero son identificadores de la cuenta: no van al repo.
@@ -46,3 +49,8 @@ class OpenAegisStack(Stack):
         CfnOutput(self, "CognitoClientId", value=self.auth.client.user_pool_client_id,
                   description="VITE_COGNITO_CLIENT_ID")
         CfnOutput(self, "CognitoDomain", value=self.auth.domain.base_url(), description="VITE_COGNITO_DOMAIN")
+        # Los usa scripts/deploy_spa.sh.
+        CfnOutput(self, "SpaUrl", value=self.frontend.url, description="La SPA")
+        CfnOutput(self, "SpaBucket", value=self.frontend.bucket.bucket_name, description="Bucket del build")
+        CfnOutput(self, "DistributionId", value=self.frontend.distribution.distribution_id,
+                  description="Para invalidar la caché")

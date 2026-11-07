@@ -66,11 +66,22 @@ class AuthTest(unittest.TestCase):
         self.assertCountEqual(props["AllowedOAuthScopes"], ["openid", "email"])
         self.assertEqual(props["SupportedIdentityProviders"], ["COGNITO"])
 
-    def test_callbacks_solo_de_localhost_por_ahora(self):
-        # El dominio de CloudFront se suma en el 12.5, como referencia (nunca escrito en el repo).
+    def test_callbacks_de_localhost_y_de_la_distribucion(self):
+        # El dominio de CloudFront es una REFERENCIA a la distribución del stack (D114): nunca un texto.
         props = self.only("AWS::Cognito::UserPoolClient")["Properties"]
-        self.assertEqual(props["CallbackURLs"], ["http://localhost:5173/app/callback"])
-        self.assertEqual(props["LogoutURLs"], ["http://localhost:5173/app"])
+        distribution_id = next(
+            lid for lid, r in self.resources.items() if r["Type"] == "AWS::CloudFront::Distribution"
+        )
+        for field, path in (("CallbackURLs", "/app/callback"), ("LogoutURLs", "/app")):
+            with self.subTest(field=field):
+                urls = props[field]
+                self.assertEqual(len(urls), 2)
+                self.assertEqual(urls[0], f"http://localhost:5173{path}")
+                cloudfront = urls[1]
+                self.assertEqual(
+                    cloudfront,
+                    {"Fn::Join": ["", ["https://", {"Fn::GetAtt": [distribution_id, "DomainName"]}, path]]},
+                )
 
     def test_duracion_de_tokens_y_revocacion(self):
         props = self.only("AWS::Cognito::UserPoolClient")["Properties"]
