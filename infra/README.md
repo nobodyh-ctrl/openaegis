@@ -160,6 +160,42 @@ aws logs tail /aws/vendedlogs/apigateway/openaegis-http-api --since 30m --format
 
 En el access log, `integrationStatus: "-"` en los rechazos prueba que la Lambda **no se ejecutó**. `status: 201` con `integrationStatus: 200` no es una contradicción: el primero es lo que respondió la Lambda, el segundo, el resultado de invocarla.
 
+### Verificación del 12.5: S3 + CloudFront + la SPA (2026-11-07, todo ✅)
+
+**En el `cdk diff`:** 2 statements de la bucket policy (`Deny` `s3:*` sin TLS para `AWS:*`, y `Allow` `s3:GetObject` solo para `cloudfront.amazonaws.com` con `AWS:SourceArn` = la distribución), 4 `[+]` sin Lambdas, y `[~]` **sin replace** en el app client (callbacks) y en la API (CORS). El deploy tardó ~3,5 min (propagación de CloudFront). Después: build en la PC y `scripts/deploy_spa.sh`, que pasó los dos controles del build.
+
+```bash
+out() { aws cloudformation describe-stacks --stack-name OpenAegis --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text; }
+SPA=$(out SpaUrl); API=$(out ApiUrl); API=${API%/}; BUCKET=$(out SpaBucket)
+curl -sSI $SPA/ | grep -iE "^HTTP|content-type|cache-control"
+curl -sS -o /dev/null -w "%{http_code}\n" $SPA/app/controles
+curl -sS -o /dev/null -w "%{http_code}\n" "https://$BUCKET.s3.amazonaws.com/index.html"
+for ORIGIN in "$SPA" "https://sitio-ajeno.example"; do
+  curl -sS -o /dev/null -D - -X OPTIONS $API/controls -H "Origin: $ORIGIN" \
+    -H "Access-Control-Request-Method: GET" -H "Access-Control-Request-Headers: authorization" \
+    | grep -iE "^HTTP|access-control-allow-origin" | sed -E 's#https://[a-z0-9]+\.cloudfront\.net#<spa>#'
+done
+```
+
+| Prueba | Esperado | Obtenido |
+|---|---|---|
+| `/` | `200`, `text/html`, `no-cache` | ✅ |
+| `/app/controles` | `200` (error pages, D67) | ✅ |
+| `assets/index-<hash>.js` | `text/javascript`, `immutable` | ✅ |
+| HTTP | `301` a HTTPS | ✅ |
+| Bucket directo, sin CloudFront | `403` | ✅ solo responde a la distribución firmada con OAC |
+| Preflight desde la SPA / desde un origen ajeno | `204` con / sin `access-control-allow-origin` | ✅ CORS lo aplica el navegador: no es autenticación |
+| Callbacks / logout del app client | 2 / 2 (localhost + CloudFront) | ✅ |
+| Navegador (incógnito, URL `SpaUrl`) | Login con MFA, CRUD, F5 en `/app/controles`, sin errores de CORS | ✅ |
+| Tabla manual de controles | Sin cambios | ✅ |
+
+**Filtro para compartir salidas.** Tapa la cuenta, los dominios, el pool y la distribución:
+
+```bash
+tapar() { sed -E 's#stack/OpenAegis/[0-9a-f-]+#stack/OpenAegis/<uuid>#g; s/[0-9]{12}/<cuenta>/g; s#https://[a-z0-9]+\.(cloudfront\.net|execute-api[^/ ]+)#https://<oculto>#g; s/us-east-1_[A-Za-z0-9]+/<user-pool-id>/g; s/openaegis-[0-9a-f]{8}/<dominio-cognito>/g; s/\bE[A-Z0-9]{12,13}\b/<distribution-id>/g; s/(frontendbucket[0-9a-f]{8})-[a-z0-9]+/\1-<sufijo>/g; s/(ClientId[" =:]+)[a-z0-9]{20,}/\1<client-id>/g'; }
+npx cdk diff 2>&1 | tapar
+```
+
 ⚠️ Datos sensibles de este paso: el bloque **Outputs** y el **Stack ARN** del `cdk deploy` (la URL de la API, el pool, el client, el dominio, la cuenta) y `GET /scans/latest`, que devuelve `requested_by` (el `sub` de quien lanzó el scan).
 
 ## Hallazgos del primer deploy

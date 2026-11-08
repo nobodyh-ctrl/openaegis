@@ -1,7 +1,7 @@
 # Decisiones técnicas
 
 > Índice de **todas** las decisiones del proyecto. D1–D31 están desarrolladas en el doc de cada etapa (acá solo el resumen y el enlace). D32–D54 (Etapa 6) están acá con sus alternativas completas y resumidas en [06-dynamodb.md](06-dynamodb.md).
-> **Próximo número libre: D119.** D102–D118 registrados (Etapa 12, CDK, pasos 12.1–12.4, 2026-11-07).
+> **Próximo número libre: D122.** D102–D121 registrados (Etapa 12, CDK, pasos 12.1–12.5, 2026-11-07).
 > Cada decisión nueva se agrega acá y en el doc de su etapa.
 > Las decisiones grandes tienen además un **ADR** completo (D55):
 >
@@ -146,6 +146,9 @@ D32–D54, tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSAC
 | D116 | Etapa 12 · Dominio del login | Prefijo **`openaegis-` + el primer tramo del UUID del stack** (`Fn::Select` sobre `AWS::StackId`). 2026-11-07 | El prefijo es único en todo AWS: uno fijo choca entre quienes clonen el repo. No queda en el repo, y no expone el ID de la cuenta (que también está en el `StackId`). Verificado: el prefijo desplegado coincide con el UUID del stack | Prefijo fijo en el código; pasarlo con `-c` en cada deploy (fácil de olvidar) |
 | D117 | Etapa 12 · Access logs de la API | **En el 12.4**, junto con el stage (y no en el 12.6): `/aws/vendedlogs/apigateway/openaegis-http-api`, los 15 campos de D85, 1 semana, `DESTROY`. Se configuran con el L1 (`CfnStage`), porque en Python la opción del L2 pide implementar una interfaz de jsii. 2026-11-07 | Sin access logs, las pruebas del `401`/`403` son a ciegas: la Lambda nunca ve esos rechazos | Dejarlos para el 12.6 con el resto de la observabilidad |
 | D118 | Etapa 12 · App client | Flujos **`ALLOW_USER_SRP_AUTH` + `ALLOW_REFRESH_TOKEN_AUTH`**, `PreventUserExistenceErrors` y recuperación de cuenta **solo por email**. 2026-11-07 | SRP: la contraseña nunca viaja. Sin `USER_PASSWORD_AUTH` ni `CUSTOM_AUTH`. El mismo error para usuario inexistente y contraseña mala impide averiguar qué emails existen. Sin SMS (costo de SNS) | Los flujos por defecto de Cognito si no se especifican (incluyen `CUSTOM_AUTH`); recuperación por teléfono |
+| D119 | Etapa 12 · Deploy de la SPA | **CDK crea el bucket y la distribución, pero no sube el build.** Lo sube `scripts/deploy_spa.sh` (D79): saca el bucket y la distribución de los outputs, **frena si el build no apunta a la API y al app client de este stack** y sube en el orden assets → `public/` → `index.html`, sin `--delete`. El build sigue en la PC, sin credenciales. 2026-11-07 | El build lleva adentro la URL de la API y los datos de Cognito, que recién existen después del deploy (con `BucketDeployment` serían dos deploys por cambio). Además, `dist/` tendría que existir en CloudShell, y `BucketDeployment` suma una Lambda con permisos de escritura sobre el bucket. El control del script ataja el error de compilar contra otro entorno (SPA con `401` en todo) | `BucketDeployment` de CDK; compilar en CloudShell (rompe D79); seguir con los 6 comandos a mano |
+| D120 | Etapa 12 · Bucket de la SPA | **`DESTROY` sin `autoDeleteObjects`**, con nombre generado por CDK (se lee del output `SpaBucket`). `cdk destroy` exige vaciarlo antes (`infra/README.md`, "Desinstalar"). 2026-11-07 | El contenido se regenera con un build. `autoDeleteObjects` agrega una Lambda con permiso de borrar objetos del bucket: superficie de más para ahorrar un comando. Un test controla que el stack siga con 2 Lambdas | `DESTROY` + `autoDeleteObjects`; `RETAIN` (bucket huérfano sin valor) |
+| D121 | Etapa 12 · Paridad en la migración | **Primero mover, después mejorar**: cada paso del stack replica lo manual tal cual (por ejemplo, el CORS con `MaxAge 0` y CloudFront sin security headers). Las mejoras van después del 12.8, de a una y con su propio deploy. 2026-11-07 | Al comparar los dos entornos en el 12.7, la única diferencia tiene que ser dónde vive la configuración, no qué configuración es. Con varios cambios juntos, un problema tiene varios sospechosos | Sumar las mejoras durante la migración (un deploy menos) |
 
 ## Propuestas (no decididas)
 
@@ -158,7 +161,8 @@ D32–D54, tomadas con el usuario entre el 2026-10-08 y el 2026-10-10 [CONVERSAC
 | Terraform | CDK para la app, Terraform para un *security lab* | Hipótesis del usuario, no decidida |
 | API bajo CloudFront | Servir la API en `/api/*` (mismo origen, sin CORS) | Mejora posible mencionada en D30 |
 | CI/CD con GitLab CI o Jenkins | **V1:** seguir con GitHub Actions y sumar el CD (deploy al mergear, con OIDC hacia AWS) en la Etapa 12. **Bloque B:** replicar el mismo pipeline en GitLab CI (con un espejo del repo) para comparar; Jenkins solo local con Docker, como ejercicio. Nunca en una EC2 de la cuenta (D8). Conversado el 2026-10-24 | [PROPUESTA] |
-| `MaxAge` del CORS | Subirlo de 0 a, por ejemplo, 300 s: con `Authorization`, cada llamada hace preflight (visible en el access log desde la Etapa 10) | [PROPUESTA] (Etapa 9) |
+| `MaxAge` del CORS | Subirlo de 0 a, por ejemplo, 300 s: con `Authorization`, cada llamada hace preflight (visible en el access log desde la Etapa 10) | [PROPUESTA] (Etapa 9). Después del 12.8, por D121 |
+| Security headers en CloudFront | Response headers policy administrada (HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`): sin costo, una línea en `frontend.py` | [PROPUESTA] (12.5). Después del 12.8, por D121 |
 | ODD como metodología | Registrar ODD (Specs / Tasks / Log en `odd/tasks/`) como forma de trabajo del proyecto. Se había reservado como D84; tomará el próximo número libre cuando se decida | [PROPUESTA] |
 | Escaneos de rutas inexistentes | Ruta `$default` con el JWT authorizer, para que queden en el access log (D85, opción b) | [PROPUESTA] (Etapa 10) |
 

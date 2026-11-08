@@ -98,7 +98,7 @@ Localmente existe `lambda.zip` (artefacto de deploy, ignorado por `.gitignore`).
 | Cognito (Etapa 9): User Pool con MFA, login en la SPA, JWT authorizer en las 5 rutas | ✅ [CONVERSACIÓN, 2026-10-24]: verificado en producción (11 pruebas, incluido el `401` → login y el `403` en la SPA); checkpoint hecho. [docs/09-cognito.md](docs/09-cognito.md) |
 | CloudWatch (Etapa 10): logs JSON con `user_sub`, access logs de API Gateway, 3 alarmas → SNS → email, dashboard `OpenAegis` | ✅ código [CONFIRMADO-REPO] (PR #17) + configuración [CONVERSACIÓN, 2026-10-25], verificada con un simulacro de falla. [docs/10-cloudwatch.md](docs/10-cloudwatch.md) |
 | Checks (Etapa 11): Lambda `openaegis-scanner` con lectura sobre los recursos evaluados y escritura limitada en DynamoDB, 5 checks, tablas `openaegis-findings` y `openaegis-scans`, rutas `POST /scans`, `GET /scans/latest`, `GET /findings`, Escanear + findings + score en la SPA | ✅ código [CONFIRMADO-REPO] (PRs #19–#22) + configuración [CONVERSACIÓN, 2026-10-28]; último scan 7/7 `PASS`. [docs/11-checks.md](docs/11-checks.md) |
-| CDK (Etapa 12): stack `OpenAegis` en paralelo con lo manual (D102–D118) | 🔄 12.4 ✅ [CONVERSACIÓN, 2026-11-07]: tablas, 2 Lambdas, roles, Cognito y HTTP API con JWT authorizer desplegados y verificados (login + CRUD desde la SPA local). Sigue el 12.5 (S3 + CloudFront). `cdk synth` ya corre en el CI (PR #25) |
+| CDK (Etapa 12): stack `OpenAegis` en paralelo con lo manual (D102–D121) | 🔄 12.5 ✅ [CONVERSACIÓN, 2026-11-07]: tablas, 2 Lambdas, roles, Cognito, HTTP API con JWT authorizer, S3 + CloudFront y la SPA (`scripts/deploy_spa.sh`) desplegados y verificados: login + CRUD en la URL nueva. Sigue el 12.6 (alarmas, SNS, dashboard). `cdk synth` ya corre en el CI (PR #25) |
 | Tests de `controls.py`, README completo, demo | [PENDIENTE] (Etapas 14–16) |
 
 Detalle: [docs/ROADMAP.md](docs/ROADMAP.md).
@@ -224,7 +224,7 @@ El usuario pidió un **tutor técnico exigente, no un generador de código**. Re
 ## 10. Cómo documentar
 
 - **Un doc por etapa** en `docs/NN-tema.md`, con la estructura de los existentes: objetivo, conceptos, decisiones (`D#`), configuración, verificación, debugging, costos, relación con Cloud Security, cómo revertir, cosas que NO hacer. Con marcadores en lugar de identificadores reales.
-- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D119**), y al doc de su etapa.
+- **Cada decisión nueva** se agrega a [docs/DECISIONS.md](docs/DECISIONS.md) con el siguiente número libre (hoy: **D122**), y al doc de su etapa.
 - **ADRs** (`docs/architecture-decisions/NNN-tema.md`, D55): solo para decisiones **grandes**; `DECISIONS.md` es el índice de todas. Formato: Contexto, Decisión, Por qué, Alternativas consideradas, Ventajas, Desventajas, Consideraciones de seguridad, Consideraciones de costo, Consecuencias, Evolución futura (más estado, fecha y decisiones relacionadas). Existen ADR-001 a ADR-009; el siguiente es **010**. Al crear uno, agregarlo a la tabla de `DECISIONS.md`.
 - **README:** contar la evolución, con ventajas **y desventajas**; **solo lo implementado**.
 - Actualizar ROADMAP y ARCHITECTURE cuando algo cambie de estado.
