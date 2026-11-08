@@ -30,7 +30,7 @@ Orden original 0–16. **Cambio acordado:** Lambda pasó a ser la Etapa 4 y API 
 | 9 | Cognito: login con MFA en la SPA + JWT authorizer en el HTTP API (D80–D83, ADR-007) | ✅ (2026-10-24) | [09-cognito.md](09-cognito.md) |
 | 10 | CloudWatch: logs JSON con auditoría, access logs, alarmas por email, dashboard y simulacro de falla (D84–D88, ADR-008) | ✅ (2026-10-25) | [10-cloudwatch.md](10-cloudwatch.md) |
 | **11** | **Checks read-only con boto3 (5 checks) → findings → score ponderado → Escanear en la SPA (D89–D101, ADR-009)** | ✅ (2026-10-28) | [11-checks.md](11-checks.md) |
-| **12** | **AWS CDK (Python): toda la infraestructura como código; habilita el modelo self-hosted (D102–D121)** | 🔄 en curso: 12.5 ✅ (2026-11-07), sigue el 12.6 | [infra/README.md](../infra/README.md) (`docs/12-cdk.md` en el 12.8) |
+| **12** | **AWS CDK (Python): toda la infraestructura como código; habilita el modelo self-hosted (D102–D125)** | 🔄 en curso: 12.6 ✅ (2026-11-08), sigue el 12.7 | [infra/README.md](../infra/README.md) (`docs/12-cdk.md` en el 12.8) |
 | 13 | GitHub Actions / CI | [PENDIENTE] — opción **A** (D59): se completa con `cdk synth` después de la Etapa 12 | — |
 | 14 | Testing | [PENDIENTE] | — |
 | 15 | Documentación: README completo y ADRs | [PENDIENTE] (se avanza en cada etapa) | — |
@@ -65,7 +65,7 @@ Orden original 0–16. **Cambio acordado:** Lambda pasó a ser la Etapa 4 y API 
     | 12.3 | Tablas + 2 Lambdas + roles (PR #26), bootstrap, primer deploy y verificación (4 pruebas en CloudShell) | ✅ 2026-11-07 |
     | 12.4 | API Gateway + JWT authorizer + Cognito (PR #28), deploy y verificación (login + CRUD en la SPA local, 401/403/200/202, permisos con método, access log) | ✅ 2026-11-07 |
     | 12.5 | S3 + CloudFront (PR #30), deploy de la SPA con `scripts/deploy_spa.sh` y verificación (headers, OAC, CORS, callbacks, login + CRUD en producción) | ✅ 2026-11-07 |
-    | 12.6 | Logs, alarmas, SNS, dashboard (choque de nombres como en D111) | Pendiente |
+    | 12.6 | Alarmas, SNS y dashboard (PR #32), choque de nombres (D122), email fuera del stack (D123), simulacro de D88 y drift detection; falso positivo del drift corregido (PR #33, D125) | ✅ 2026-11-08 |
     | 12.7 | Copiar los controles a `openaegis-controls`, verificar todo en paralelo, scan | Pendiente |
     | 12.8 | Borrar lo manual (con OK, recurso por recurso) + `docs/12-cdk.md` + checkpoint | Pendiente |
 15. Etapa 13 — CI según la opción que elija el usuario.
