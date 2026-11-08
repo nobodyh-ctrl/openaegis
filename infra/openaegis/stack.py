@@ -22,6 +22,7 @@ from openaegis.auth import Auth
 from openaegis.compute import Compute
 from openaegis.data import Data
 from openaegis.frontend import Frontend
+from openaegis.observability import Observability
 
 
 class OpenAegisStack(Stack):
@@ -40,6 +41,14 @@ class OpenAegisStack(Stack):
         self.frontend = Frontend(self, "Frontend")
         self.auth = Auth(self, "Auth", spa_url=self.frontend.url)
         self.api = Api(self, "Api", function=self.compute.api, auth=self.auth, spa_url=self.frontend.url)
+        self.observability = Observability(
+            self,
+            "Observability",
+            api_function=self.compute.api,
+            scanner_function=self.compute.scanner,
+            http_api=self.api.http_api,
+            access_logs=self.api.access_logs,
+        )
 
         # Lo que la SPA necesita para apuntar al stack (frontend/.env.local). No son secretos: quedan
         # visibles en el .js de la SPA. Pero son identificadores de la cuenta: no van al repo.

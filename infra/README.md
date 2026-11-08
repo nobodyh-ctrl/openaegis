@@ -11,8 +11,9 @@ Un solo stack, `OpenAegis`, escrito en Python. `cdk synth` lo traduce a una plan
 | `openaegis/auth.py` | Cognito: User Pool con MFA obligatorio y registro cerrado, app client de la SPA (PKCE, sin secret) y dominio del login, con un prefijo derivado del ID del stack |
 | `openaegis/api.py` | HTTP API `openaegis-http-api`: JWT authorizer en las 8 rutas, CORS solo para la distribución, throttling, access log y **un permiso de invocación por ruta con el método** (D57; la integración de CDK por defecto lo deshace) |
 | `openaegis/frontend.py` | Bucket privado de la SPA (BPA, SSE-S3, solo TLS) + distribución de CloudFront con OAC (solo `s3:GetObject`) y error pages 403/404 → `/index.html`. Su dominio llega a Cognito y al CORS como **referencia** |
+| `openaegis/observability.py` | Las 4 alarmas de D86 (Lambda API, scanner, 5xx y pico de 4xx), el topic `openaegis-alarmas` y el dashboard `OpenAegis` con los 7 paneles de D87. Las métricas salen de los recursos del stack, así las dimensiones son referencias (D88). El email se suscribe **fuera** del stack |
 | `../scripts/deploy_spa.sh` | Sube el build de la SPA (D79). No es parte del stack: el build necesita los outputs del stack |
-| `tests/` | Tests de la plantilla sin AWS: `test_stack.py` tiene las reglas que cumple cualquier recurso; `test_data.py`, `test_compute.py`, `test_auth.py` y `test_api.py`, las de cada construct (incluida la lista exacta de permisos de cada rol y de invocación de la Lambda), más `test_frontend.py`. 57 tests al 12.5 |
+| `tests/` | Tests de la plantilla sin AWS: `test_stack.py` tiene las reglas que cumple cualquier recurso; `test_data.py`, `test_compute.py`, `test_auth.py` y `test_api.py`, las de cada construct (incluida la lista exacta de permisos de cada rol y de invocación de la Lambda), más `test_frontend.py` y `test_observability.py` (namespace, métrica y dimensión de cada alarma, y que no haya ningún email en la plantilla). 69 tests al 12.6 |
 | `cdk.json` | Cómo correr la app + feature flags de CDK (los recomendados al crear el proyecto) |
 | `requirements.txt` | Librería de CDK (Python), versión exacta |
 | `package.json` | CLI de CDK (Node), versión exacta: se usa con `npx cdk`. Se actualiza junto con `requirements.txt` |
@@ -81,6 +82,18 @@ bash ~/openaegis/scripts/deploy_spa.sh
 ```
 
 El script saca el bucket y la distribución de los outputs, **frena si el build es de otro stack** (busca la URL de la API y el client ID en el `.js`, sin imprimirlos) y sube en el orden de D79: assets (1 año, `immutable`) → archivos de `public/` (1 día) → `index.html` (`no-cache`) → invalidación de `/` y `/index.html`. Sin `--delete`.
+
+### Avisos por email (desde el 12.6)
+
+El stack crea el topic `openaegis-alarmas`, pero **no la suscripción**: el email es un dato personal y no tiene que quedar en el repo, en la plantilla ni en `cdk.out`. Se suscribe una vez después del deploy (y otra vez si el topic se recrea, por ejemplo tras un `cdk destroy`). `-s` oculta lo que se tipea:
+
+```bash
+TOPIC=$(aws sns list-topics --query "Topics[?ends_with(TopicArn, ':openaegis-alarmas')].TopicArn" --output text)
+read -rs EMAIL && aws sns subscribe --topic-arn "$TOPIC" --protocol email \
+  --notification-endpoint "$EMAIL" --query SubscriptionArn --output text; unset EMAIL
+```
+
+Esperado: `pending confirmation`. Llega un mail de AWS Notifications con el link **Confirm subscription**: hasta confirmarlo, las alarmas no avisan.
 
 ### Desinstalar
 
