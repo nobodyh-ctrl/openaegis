@@ -143,7 +143,12 @@ class ApiTest(unittest.TestCase):
         _, stage = self.only("AWS::ApiGatewayV2::Stage")
         settings = stage["Properties"]["AccessLogSettings"]
         self.assertEqual(json.loads(settings["Format"]), ACCESS_LOG_FIELDS)
-        log_group_id = settings["DestinationArn"]["Fn::GetAtt"][0]
+        # El ARN del log group SIN el ":*" final: API Gateway lo guarda así, y con ":*" la drift
+        # detection marca el stage como cambiado para siempre (falso positivo del simulacro del 12.6).
+        # Se arma con Fn::Join: [..., ":log-group:", {"Ref": <log group>}], y el Ref es lo último.
+        parts = settings["DestinationArn"]["Fn::Join"][1]
+        self.assertEqual(parts[-2], ":log-group:")
+        log_group_id = parts[-1]["Ref"]
         log_group = self.resources[log_group_id]
         self.assertEqual(log_group["Properties"]["LogGroupName"], "/aws/vendedlogs/apigateway/openaegis-http-api")
         self.assertEqual(log_group["Properties"]["RetentionInDays"], 7)

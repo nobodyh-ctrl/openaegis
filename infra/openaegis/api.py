@@ -18,7 +18,7 @@ de acá no agrega ninguno, y cada ruta suma el suyo con el método explícito.
 import json
 import re
 
-from aws_cdk import Duration, RemovalPolicy
+from aws_cdk import ArnFormat, Duration, RemovalPolicy, Stack
 from aws_cdk import aws_apigateway as apigw
 from aws_cdk import aws_apigatewayv2 as apigwv2
 from aws_cdk import aws_apigatewayv2_authorizers as authorizers
@@ -121,7 +121,14 @@ class Api(Construct):
         # El access log se configura sobre el recurso de CloudFormation (L1): en Python, la opción del
         # L2 pide implementar una interfaz de jsii, y así se ve exactamente lo que queda en la plantilla.
         self.stage.node.default_child.access_log_settings = apigwv2.CfnStage.AccessLogSettingsProperty(
-            destination_arn=self.access_logs.log_group_arn,
+            # Sin el ":*" que trae log_group_arn: API Gateway lo guarda sin él, y con ":*" la drift
+            # detection marca el stage como cambiado aunque nadie lo tocó.
+            destination_arn=Stack.of(self).format_arn(
+                service="logs",
+                resource="log-group",
+                resource_name=self.access_logs.log_group_name,
+                arn_format=ArnFormat.COLON_RESOURCE_NAME,
+            ),
             format=apigw.AccessLogFormat.custom(json.dumps(ACCESS_LOG_FORMAT, separators=(",", ":"))).to_string(),
         )
 
