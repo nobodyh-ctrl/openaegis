@@ -202,14 +202,68 @@ done
 | Navegador (incógnito, URL `SpaUrl`) | Login con MFA, CRUD, F5 en `/app/controles`, sin errores de CORS | ✅ |
 | Tabla manual de controles | Sin cambios | ✅ |
 
-**Filtro para compartir salidas.** Tapa la cuenta, los dominios, el pool y la distribución:
+**Filtro para compartir salidas.** Tapa la cuenta, los dominios, el pool, la distribución y (desde el 12.6) el ID de la API suelto, que no tiene un formato reconocible y por eso se busca por su valor:
 
 ```bash
-tapar() { sed -E 's#stack/OpenAegis/[0-9a-f-]+#stack/OpenAegis/<uuid>#g; s/[0-9]{12}/<cuenta>/g; s#https://[a-z0-9]+\.(cloudfront\.net|execute-api[^/ ]+)#https://<oculto>#g; s/us-east-1_[A-Za-z0-9]+/<user-pool-id>/g; s/openaegis-[0-9a-f]{8}/<dominio-cognito>/g; s/\bE[A-Z0-9]{12,13}\b/<distribution-id>/g; s/(frontendbucket[0-9a-f]{8})-[a-z0-9]+/\1-<sufijo>/g; s/(ClientId[" =:]+)[a-z0-9]{20,}/\1<client-id>/g'; }
+API_ID=$(aws apigatewayv2 get-apis --query "Items[?Name=='openaegis-http-api'].ApiId" --output text)
+tapar() { sed -E 's#stack/OpenAegis/[0-9a-f-]+#stack/OpenAegis/<uuid>#g; s/[0-9]{12}/<cuenta>/g; s#https://[a-z0-9]+\.(cloudfront\.net|execute-api[^/ ]+)#https://<oculto>#g; s/us-east-1_[A-Za-z0-9]+/<user-pool-id>/g; s/openaegis-[0-9a-f]{8}/<dominio-cognito>/g; s/\bE[A-Z0-9]{12,13}\b/<distribution-id>/g; s/(frontendbucket[0-9a-f]{8})-[a-z0-9]+/\1-<sufijo>/g; s/(ClientId[" =:]+)[a-z0-9]{20,}/\1<client-id>/g' | sed "s/${API_ID:-__sin_api_id__}/<api-id>/g"; }
 npx cdk diff 2>&1 | tapar
 ```
 
+`tapar` hay que definirlo de nuevo en cada sesión de CloudShell. El email nunca pasa por acá: no se imprime (`read -rs`).
+
 ⚠️ Datos sensibles de este paso: el bloque **Outputs** y el **Stack ARN** del `cdk deploy` (la URL de la API, el pool, el client, el dominio, la cuenta) y `GET /scans/latest`, que devuelve `requested_by` (el `sub` de quien lanzó el scan).
+
+### Verificación del 12.6: alarmas, SNS y dashboard (2026-11-08, todo ✅)
+
+**Antes del deploy:** el `cdk diff` mostró 6 `[+]` (topic, 4 alarmas, dashboard), sin cambios de IAM, y la early validation listó los 6 choques con lo manual. Se respaldaron los 6 manuales en `~/backup-12-6` (`describe-alarms`, `get-dashboard`) y se borraron de a uno (D122). El deploy no pidió `y`: no amplía permisos.
+
+**Después, a qué mira cada alarma (D88), sin imprimir IDs:**
+
+```bash
+aws cloudwatch describe-alarms --alarm-name-prefix openaegis- \
+  --query "MetricAlarms[].{n:AlarmName,ns:Namespace,m:MetricName,dim:Dimensions[0].Name,umbral:Threshold,estado:StateValue}" --output table
+for a in openaegis-lambda-errors openaegis-scanner-errors; do
+  FN=$(aws cloudwatch describe-alarms --alarm-names $a --query "MetricAlarms[0].Dimensions[0].Value" --output text)
+  echo "$a → $FN, métrica existe: $(aws cloudwatch list-metrics --namespace AWS/Lambda --metric-name Errors \
+    --dimensions Name=FunctionName,Value=$FN --query 'length(Metrics)')"
+done
+for a in openaegis-api-5xx openaegis-api-4xx-pico; do
+  V=$(aws cloudwatch describe-alarms --alarm-names $a --query "MetricAlarms[0].Dimensions[0].Value" --output text)
+  [ "$V" = "$API_ID" ] && echo "$a → la API del stack ✅" || echo "$a → OTRA API ❌"
+done
+```
+
+`métrica existe` da **2** y no 1: Lambda publica `Errors` con `FunctionName` y con `FunctionName` + `Resource`. Lo que importa es que no sea 0 (la alarma muda de la Etapa 10).
+
+**Simulacro (D88) y drift detection:**
+
+```bash
+cd ~/backup-12-6
+aws lambda get-function-configuration --function-name openaegis-api --query Environment > env-original.json
+jq '.Variables.TABLE_NAME = "openaegis-controls-roto"' env-original.json > env-roto.json
+aws lambda update-function-configuration --function-name openaegis-api --environment file://$HOME/backup-12-6/env-roto.json
+# errores: 3 × aws lambda invoke (GET /controls) + recargar la SPA (pasa por API Gateway → 5xx)
+DRIFT=$(aws cloudformation detect-stack-drift --stack-name OpenAegis --query StackDriftDetectionId --output text)
+while [ "$(aws cloudformation describe-stack-drift-detection-status --stack-drift-detection-id $DRIFT --query DetectionStatus --output text)" = "DETECTION_IN_PROGRESS" ]; do sleep 5; done
+aws cloudformation describe-stack-resource-drifts --stack-name OpenAegis --stack-resource-drift-status-filters MODIFIED --query "StackResourceDrifts[].LogicalResourceId"
+# arreglo: update-function-configuration con env-original.json, y drift de nuevo
+```
+
+| Prueba | Esperado | Obtenido |
+|---|---|---|
+| Las 4 alarmas | Métrica, umbral y dimensión de D86, con los recursos del stack | ✅ |
+| Acción de las 4 | Topic `openaegis-alarmas` | ✅ |
+| Dashboard | 7 paneles | ✅ (los de logs, `No data found` sin tráfico en el rango) |
+| Suscripción | `pending confirmation` → confirmada por el link del mail | ✅ |
+| `set-alarm-state` | Mail `ALARM` (prueba solo la cadena SNS) | ✅ |
+| `TABLE_NAME` roto + 3 invocaciones | `openaegis-lambda-errors` en `ALARM` con `[3.0]` | ✅ a los ~3 min |
+| Recargas en la SPA | `openaegis-api-5xx` en `ALARM` con `[9.0]` | ✅ |
+| Drift detection con el cambio a mano | `DRIFTED`: la Lambda (`/Environment/Variables/TABLE_NAME`) | ✅, más un falso positivo en el stage: ARN con `:*` (D125, PR #33) |
+| `cdk deploy` sin cambiar el código | No arregla el drift: compara contra la plantilla desplegada, no contra AWS | ✅ (pregunta de concepto) |
+| Arreglo a mano + drift, tras el PR #33 | `IN_SYNC`, 0 recursos | ✅ |
+
+⚠️ Los mails de alarma traen el ID de la cuenta, el email y un **link de baja que funciona sin login**: no compartirlos.
 
 ## Hallazgos del primer deploy
 
@@ -227,3 +281,5 @@ npx cdk diff 2>&1 | tapar
 |---|---|---|
 | `cdk synth`/`deploy` falla en CloudShell con un error de jsii sobre permisos | El home de CloudShell tenía permisos `0777`, y jsii (el puente entre Python y el CDK en JavaScript) se niega a usar un caché que cualquiera puede escribir | `chmod go-w ~`. Si vuelve tras reiniciar CloudShell: `export JSII_RUNTIME_PACKAGE_CACHE=disabled` |
 | Aviso "Newer version available" | El CLI está fijo a propósito (D107) | Ignorarlo; actualizar `package.json` y `requirements.txt` juntos, con versiones de ≥ 14 días |
+| `cdk diff` dice "Omitted N changes because they are likely mangled non-ASCII characters" en cada corrida, aunque no haya cambios | La copia de la plantilla desplegada que lee CDK tiene `?` en lugar de las letras con acento (descripciones de las alarmas, de un output). Los recursos están bien: el mail de alarma muestra "terminó" y la drift detection da `IN_SYNC`. Causa exacta sin confirmar (posiblemente la configuración regional de CloudShell) | Inofensivo. Ante la duda, `npx cdk diff --strict`: las diferencias tienen que ser solo `?` contra una letra con acento |
+| Una alarma sigue en `OK` justo después de provocar errores | Lambda y API Gateway publican las métricas con 1 a 3 minutos de atraso, y la alarma se evalúa una vez por minuto | Esperar unos 5 minutos antes de concluir que no funciona |
